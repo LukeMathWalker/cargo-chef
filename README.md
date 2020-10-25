@@ -81,18 +81,22 @@ cargo chef cook --release --recipe-path recipe.json
 You can leverage it in a Dockerfile:
 
 ```dockerfile
-FROM rust as cacher
+FROM rust as planner
 WORKDIR app
 # We only pay the installation cost once, 
 # it will be cached from the second build onwards
+RUN cargo install cargo-chef 
+COPY . .
+RUN cargo chef prepare  --recipe-path recipe.json
+
+FROM rust as cacher
+WORKDIR app
 RUN cargo install cargo-chef
-# Build the recipe.json beforehand/check it in version control
-COPY recipe.json .
+COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 FROM rust as builder
 WORKDIR app
-# Copy over the source code
 COPY . .
 # Copy over the cached dependencies
 COPY --from=cacher /app/target target
@@ -104,8 +108,8 @@ COPY --from=builder /app/target/release/app /usr/local/bin
 ENTRYPOINT ["./usr/local/bin/app"]
 ```
 
-We are using three stages: the first caches our dependencies, the second builds the binary and the third is our runtime environment.  
-As long as your dependencies do not change, all steps up to `cargo build --release --bin app` will be cached by Docker, massively speeding up your builds (up to 5x measured on some commercial projects).
+We are using four stages: the first computes the recipe file, the second caches our dependencies, the third builds the binary and the fourth is our runtime environment.  
+As long as your dependencies do not change the `recipe.json` file will stay the same, therefore the outcome of `cargo cargo chef cook --release --recipe-path recipe.json` will be cached, massively speeding up your builds (up to 5x measured on some commercial projects).
 
 ## Limitations
 
@@ -114,8 +118,7 @@ As long as your dependencies do not change, all steps up to `cargo build --relea
 So far we have found the following limitations and caveats:
 
 - `cargo cook` and `cargo build` must be executed from the same working directory. If you examine the `*.d` files under `target/debug/deps` for one of your projects using `cat` you will notice that they contain absolute paths referring to the project `target` directory. If moved around, `cargo` will not leverage them as cached dependencies;
-- `cargo build` will build local dependencies (outside of the current project) from scratch, even if they are unchanged, due to the reliance of its fingerprinting logic on timestamps (see [this _long_ issue on `cargo`'s repository](https://github.com/rust-lang/cargo/issues/2));
-- `cargo build` will build dependencies fetched from private registries (i.e. not crates.io) from scratch. Still investigating why, probably related to the above-mentioned fingerprinting algorithm.
+- `cargo build` will build local dependencies (outside of the current project) from scratch, even if they are unchanged, due to the reliance of its fingerprinting logic on timestamps (see [this _long_ issue on `cargo`'s repository](https://github.com/rust-lang/cargo/issues/2644));
 
 `cargo-chef` has not yet been tested extensively with projects leveraging build files.
 
