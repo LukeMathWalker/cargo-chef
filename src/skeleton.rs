@@ -13,7 +13,6 @@ pub struct Skeleton {
 pub struct Manifest {
     /// Relative path with respect to the project root.
     pub relative_path: PathBuf,
-    // We do not validate the manifest content!
     pub contents: String,
 }
 
