@@ -17,6 +17,10 @@ impl Recipe {
     pub fn cook(&self, profile: OptimisationProfile) -> Result<(), anyhow::Error> {
         self.skeleton.build_minimum_project()?;
         build_dependencies(profile);
+
+        let current_directory = std::env::current_dir()?;
+        self.skeleton
+            .remove_compiled_dummy_libraries(current_directory, profile)?;
         Ok(())
     }
 }

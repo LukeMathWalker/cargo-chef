@@ -1,3 +1,4 @@
+use crate::OptimisationProfile;
 use fs_err as fs;
 use globwalk::GlobWalkerBuilder;
 use serde::{Deserialize, Serialize};
@@ -124,6 +125,43 @@ impl Skeleton {
                 }
             }
         }
+        Ok(())
+    }
+
+    /// Scan the target directory and remove all compilation artifacts for libraries from the current
+    /// workspace.
+    /// Given the usage of dummy `lib.rs` files, keeping them around leads to funny compilation
+    /// errors if they are a dependency of another project within the workspace.
+    pub fn remove_compiled_dummy_libraries<P: AsRef<Path>>(
+        &self,
+        base_path: P,
+        profile: OptimisationProfile,
+    ) -> Result<(), anyhow::Error> {
+        let target_directory = match profile {
+            OptimisationProfile::Release => base_path.as_ref().join("target").join("release"),
+            OptimisationProfile::Debug => base_path.as_ref().join("target").join("debug"),
+        };
+
+        for manifest in &self.manifests {
+            let parsed_manifest =
+                cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
+
+            for lib in &parsed_manifest.lib {
+                let library_name = lib
+                    .name
+                    .clone()
+                    .unwrap_or_else(|| parsed_manifest.package.as_ref().unwrap().name.to_owned())
+                    .replace("-", "_");
+                let walker =
+                    GlobWalkerBuilder::new(&target_directory, format!("/**/lib{}*", library_name))
+                        .build()?;
+                for file in walker {
+                    let file = file?;
+                    fs::remove_file(file.path())?;
+                }
+            }
+        }
+
         Ok(())
     }
 }
