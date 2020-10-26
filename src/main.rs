@@ -58,6 +58,9 @@ pub struct Cook {
     /// Build in release mode.
     #[clap(long)]
     release: bool,
+    /// Build for the target triple.
+    #[clap(long)]
+    target: Option<String>,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -73,6 +76,7 @@ fn _main() -> Result<(), anyhow::Error> {
         Command::Cook(Cook {
             recipe_path,
             release,
+            target,
         }) => {
             let profile = if release {
                 OptimisationProfile::Release
@@ -83,7 +87,9 @@ fn _main() -> Result<(), anyhow::Error> {
                 .context("Failed to read recipe from the specified path.")?;
             let recipe: Recipe =
                 serde_json::from_str(&serialized).context("Failed to deserialize recipe.")?;
-            recipe.cook(profile).context("Failed to cook recipe.")?;
+            recipe
+                .cook(profile, target)
+                .context("Failed to cook recipe.")?;
         }
         Command::Prepare(Prepare { recipe_path }) => {
             let recipe = Recipe::prepare(current_directory).context("Failed to compute recipe")?;

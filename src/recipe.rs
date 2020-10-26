@@ -14,9 +14,13 @@ impl Recipe {
         Ok(Recipe { skeleton })
     }
 
-    pub fn cook(&self, profile: OptimisationProfile) -> Result<(), anyhow::Error> {
+    pub fn cook(
+        &self,
+        profile: OptimisationProfile,
+        target: Option<String>,
+    ) -> Result<(), anyhow::Error> {
         self.skeleton.build_minimum_project()?;
-        build_dependencies(profile);
+        build_dependencies(profile, target);
 
         let current_directory = std::env::current_dir()?;
         self.skeleton
@@ -31,13 +35,15 @@ pub enum OptimisationProfile {
     Debug,
 }
 
-fn build_dependencies(profile: OptimisationProfile) {
+fn build_dependencies(profile: OptimisationProfile, target: Option<String>) {
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
-    let command_with_args = match profile {
-        OptimisationProfile::Release => command_with_args.arg("--release"),
-        OptimisationProfile::Debug => command_with_args,
-    };
+    if profile == OptimisationProfile::Release {
+        command_with_args.arg("--release");
+    }
+    if let Some(target) = target {
+        command_with_args.arg("--target").arg(target);
+    }
 
     execute_command(command_with_args);
 }
