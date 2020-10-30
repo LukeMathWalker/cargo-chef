@@ -1,6 +1,7 @@
 use crate::OptimisationProfile;
+use anyhow::Context;
 use fs_err as fs;
-use globwalk::GlobWalkerBuilder;
+use globwalk::{GlobWalkerBuilder, WalkError};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -20,32 +21,46 @@ pub struct Manifest {
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
     pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
-        let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml").build()?;
+        let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
+            .build()
+            .context("Failed to scan the files in the current directory.")?;
         let mut manifests = vec![];
         for manifest in walker {
-            let manifest = manifest?;
-            let absolute_path = manifest.path().to_path_buf();
-            let contents = fs::read_to_string(&absolute_path)?;
+            match manifest {
+                Ok(manifest) => {
+                    let absolute_path = manifest.path().to_path_buf();
+                    let contents = fs::read_to_string(&absolute_path)?;
 
-            let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
-            // Required to detect bin/libs when the related section is omitted from the manifest
-            parsed.complete_from_path(&absolute_path)?;
+                    let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
+                    // Required to detect bin/libs when the related section is omitted from the manifest
+                    parsed.complete_from_path(&absolute_path)?;
 
-            // Workaround :(
-            // As suggested in issue #142 on toml-rs github repository
-            // First convert the Config instance to a toml Value,
-            // then serialize it to toml
-            let intermediate = toml::Value::try_from(parsed)?;
-            // The serialised contents might be different from the original manifest!
-            let contents = toml::to_string(&intermediate)?;
+                    // Workaround :(
+                    // As suggested in issue #142 on toml-rs github repository
+                    // First convert the Config instance to a toml Value,
+                    // then serialize it to toml
+                    let intermediate = toml::Value::try_from(parsed)?;
+                    // The serialised contents might be different from the original manifest!
+                    let contents = toml::to_string(&intermediate)?;
 
-            let relative_path = pathdiff::diff_paths(absolute_path, &base_path)
-                .ok_or_else(|| anyhow::anyhow!("Failed to compute relative path of manifest."))?;
-            manifests.push(Manifest {
-                relative_path,
-                contents,
-            });
+                    let relative_path = pathdiff::diff_paths(absolute_path, &base_path)
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("Failed to compute relative path of manifest.")
+                        })?;
+                    manifests.push(Manifest {
+                        relative_path,
+                        contents,
+                    });
+                }
+                Err(e) => match handle_walk_error(e) {
+                    ErrorStrategy::Ignore => {}
+                    ErrorStrategy::Crash(e) => {
+                        return Err(e.into());
+                    }
+                },
+            }
         }
+
         let lock_file = match fs::read_to_string(base_path.as_ref().join("Cargo.lock")) {
             Ok(lock) => Some(lock),
             Err(e) => {
@@ -136,10 +151,15 @@ impl Skeleton {
         &self,
         base_path: P,
         profile: OptimisationProfile,
+        target: Option<String>,
     ) -> Result<(), anyhow::Error> {
+        let mut target_directory = base_path.as_ref().join("target");
+        if let Some(target) = target {
+            target_directory = target_directory.join(target.as_str())
+        }
         let target_directory = match profile {
-            OptimisationProfile::Release => base_path.as_ref().join("target").join("release"),
-            OptimisationProfile::Debug => base_path.as_ref().join("target").join("debug"),
+            OptimisationProfile::Release => target_directory.join("release"),
+            OptimisationProfile::Debug => target_directory.join("debug"),
         };
 
         for manifest in &self.manifests {
@@ -164,4 +184,25 @@ impl Skeleton {
 
         Ok(())
     }
+}
+
+/// What should we should when we encounter an issue while walking the current directory?
+///
+/// If `ErrorStrategy::Ignore`, just skip the file/directory and keep going.
+/// If `ErrorStrategy::Crash`, stop exploring and return an error to the caller.
+enum ErrorStrategy {
+    Ignore,
+    Crash(WalkError),
+}
+
+/// Ignore directory/files for which we don't have enough permissions to perform our scan.
+#[must_use]
+fn handle_walk_error(e: WalkError) -> ErrorStrategy {
+    if let Some(inner) = e.io_error() {
+        if std::io::ErrorKind::PermissionDenied == inner.kind() {
+            log::warn!("Missing permission to read entry: {}\nSkipping.", inner);
+            return ErrorStrategy::Ignore;
+        }
+    }
+    ErrorStrategy::Crash(e)
 }
