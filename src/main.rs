@@ -101,9 +101,7 @@ fn _main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn main() {
+fn main() -> Result<(), anyhow::Error> {
     env_logger::init();
-    if let Err(e) = _main() {
-        println!("Failed to execute command.\n{:?}", e);
-    }
+    _main()
 }
