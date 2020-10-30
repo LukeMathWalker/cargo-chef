@@ -1,5 +1,6 @@
 use crate::Skeleton;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -18,10 +19,11 @@ impl Recipe {
         &self,
         profile: OptimisationProfile,
         default_features: DefaultFeatures,
+        features: Option<HashSet<String>>,
         target: Option<String>,
     ) -> Result<(), anyhow::Error> {
         self.skeleton.build_minimum_project()?;
-        build_dependencies(profile, default_features, target);
+        build_dependencies(profile, default_features, features, target);
 
         let current_directory = std::env::current_dir()?;
         self.skeleton
@@ -45,6 +47,7 @@ pub enum DefaultFeatures {
 fn build_dependencies(
     profile: OptimisationProfile,
     default_features: DefaultFeatures,
+    features: Option<HashSet<String>>,
     target: Option<String>,
 ) {
     let mut command = Command::new("cargo");
@@ -54,6 +57,10 @@ fn build_dependencies(
     }
     if default_features == DefaultFeatures::Disabled {
         command_with_args.arg("--no-default-features");
+    }
+    if let Some(features) = features {
+        let feature_flag = features.into_iter().collect::<Vec<_>>().join(",");
+        command_with_args.arg("--features").arg(feature_flag);
     }
     if let Some(target) = target {
         command_with_args.arg("--target").arg(target);

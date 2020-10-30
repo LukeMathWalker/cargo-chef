@@ -2,6 +2,7 @@ use anyhow::Context;
 use chef::{DefaultFeatures, OptimisationProfile, Recipe};
 use clap::Clap;
 use fs_err as fs;
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// Cache the dependencies of your Rust project.
@@ -64,6 +65,9 @@ pub struct Cook {
     /// Do not activate the `default` feature.
     #[clap(long)]
     no_default_features: bool,
+    /// Space or comma separated list of features to activate.
+    #[clap(long, use_delimiter = true, value_delimiter = ",")]
+    features: Option<Vec<String>>,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -81,7 +85,16 @@ fn _main() -> Result<(), anyhow::Error> {
             release,
             target,
             no_default_features,
+            features,
         }) => {
+            let features: Option<HashSet<String>> = features.and_then(|features| {
+                if features.is_empty() {
+                    None
+                } else {
+                    Some(features.into_iter().collect())
+                }
+            });
+
             let profile = if release {
                 OptimisationProfile::Release
             } else {
@@ -99,7 +112,7 @@ fn _main() -> Result<(), anyhow::Error> {
             let recipe: Recipe =
                 serde_json::from_str(&serialized).context("Failed to deserialize recipe.")?;
             recipe
-                .cook(profile, default_features, target)
+                .cook(profile, default_features, features, target)
                 .context("Failed to cook recipe.")?;
         }
         Command::Prepare(Prepare { recipe_path }) => {
