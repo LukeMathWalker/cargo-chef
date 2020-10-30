@@ -23,11 +23,11 @@ impl Recipe {
         target: Option<String>,
     ) -> Result<(), anyhow::Error> {
         self.skeleton.build_minimum_project()?;
-        build_dependencies(profile, default_features, features, target);
+        build_dependencies(profile, default_features, features, &target);
 
         let current_directory = std::env::current_dir()?;
         self.skeleton
-            .remove_compiled_dummy_libraries(current_directory, profile)?;
+            .remove_compiled_dummy_libraries(current_directory, profile, target)?;
         Ok(())
     }
 }
@@ -48,7 +48,7 @@ fn build_dependencies(
     profile: OptimisationProfile,
     default_features: DefaultFeatures,
     features: Option<HashSet<String>>,
-    target: Option<String>,
+    target: &Option<String>,
 ) {
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");

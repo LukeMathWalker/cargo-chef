@@ -136,10 +136,15 @@ impl Skeleton {
         &self,
         base_path: P,
         profile: OptimisationProfile,
+        target: Option<String>,
     ) -> Result<(), anyhow::Error> {
+        let mut target_directory = base_path.as_ref().join("target");
+        if let Some(target) = target {
+            target_directory = target_directory.join(target.as_str())
+        }
         let target_directory = match profile {
-            OptimisationProfile::Release => base_path.as_ref().join("target").join("release"),
-            OptimisationProfile::Debug => base_path.as_ref().join("target").join("debug"),
+            OptimisationProfile::Release => target_directory.join("release"),
+            OptimisationProfile::Debug => target_directory.join("debug"),
         };
 
         for manifest in &self.manifests {
