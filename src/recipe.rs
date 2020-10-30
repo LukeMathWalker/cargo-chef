@@ -17,10 +17,11 @@ impl Recipe {
     pub fn cook(
         &self,
         profile: OptimisationProfile,
+        default_features: DefaultFeatures,
         target: Option<String>,
     ) -> Result<(), anyhow::Error> {
         self.skeleton.build_minimum_project()?;
-        build_dependencies(profile, target);
+        build_dependencies(profile, default_features, target);
 
         let current_directory = std::env::current_dir()?;
         self.skeleton
@@ -35,11 +36,24 @@ pub enum OptimisationProfile {
     Debug,
 }
 
-fn build_dependencies(profile: OptimisationProfile, target: Option<String>) {
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum DefaultFeatures {
+    Enabled,
+    Disabled,
+}
+
+fn build_dependencies(
+    profile: OptimisationProfile,
+    default_features: DefaultFeatures,
+    target: Option<String>,
+) {
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
     if profile == OptimisationProfile::Release {
         command_with_args.arg("--release");
+    }
+    if default_features == DefaultFeatures::Disabled {
+        command_with_args.arg("--no-default-features");
     }
     if let Some(target) = target {
         command_with_args.arg("--target").arg(target);

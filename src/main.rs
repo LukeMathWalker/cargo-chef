@@ -1,5 +1,5 @@
 use anyhow::Context;
-use chef::{OptimisationProfile, Recipe};
+use chef::{DefaultFeatures, OptimisationProfile, Recipe};
 use clap::Clap;
 use fs_err as fs;
 use std::path::PathBuf;
@@ -61,6 +61,9 @@ pub struct Cook {
     /// Build for the target triple.
     #[clap(long)]
     target: Option<String>,
+    /// Do not activate the `default` feature.
+    #[clap(long)]
+    no_default_features: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -77,18 +80,26 @@ fn _main() -> Result<(), anyhow::Error> {
             recipe_path,
             release,
             target,
+            no_default_features,
         }) => {
             let profile = if release {
                 OptimisationProfile::Release
             } else {
                 OptimisationProfile::Debug
             };
+
+            let default_features = if no_default_features {
+                DefaultFeatures::Disabled
+            } else {
+                DefaultFeatures::Enabled
+            };
+
             let serialized = fs::read_to_string(recipe_path)
                 .context("Failed to read recipe from the specified path.")?;
             let recipe: Recipe =
                 serde_json::from_str(&serialized).context("Failed to deserialize recipe.")?;
             recipe
-                .cook(profile, target)
+                .cook(profile, default_features, target)
                 .context("Failed to cook recipe.")?;
         }
         Command::Prepare(Prepare { recipe_path }) => {
