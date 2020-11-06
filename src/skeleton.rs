@@ -43,9 +43,12 @@ impl Skeleton {
                     // The serialised contents might be different from the original manifest!
                     let contents = toml::to_string(&intermediate)?;
 
-                    let relative_path = pathdiff::diff_paths(absolute_path, &base_path)
+                    let relative_path = pathdiff::diff_paths(&absolute_path, &base_path)
                         .ok_or_else(|| {
-                            anyhow::anyhow!("Failed to compute relative path of manifest.")
+                            anyhow::anyhow!(
+                                "Failed to compute relative path of manifest {:?}",
+                                &absolute_path
+                            )
                         })?;
                     manifests.push(Manifest {
                         relative_path,
@@ -102,22 +105,28 @@ impl Skeleton {
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
 
             // Create dummy entrypoint files for all binaries
-            if let Some(bins) = parsed_manifest.bin {
-                for bin in &bins {
-                    // Relative to the manifest path
-                    let binary_relative_path = bin.path.clone().expect("Missing path for binary.");
-                    let binary_path = parent_directory.join(binary_relative_path);
-                    if let Some(parent_directory) = binary_path.parent() {
-                        fs::create_dir_all(parent_directory)?;
-                    }
-                    fs::write(binary_path, "fn main() {}")?;
+            for bin in &parsed_manifest.bin.unwrap_or(Vec::new()) {
+                // Relative to the manifest path
+                let binary_relative_path = bin
+                    .path
+                    .as_ref()
+                    .map(|p| p.as_str())
+                    .unwrap_or("src/main.rs");
+                let binary_path = parent_directory.join(binary_relative_path);
+                if let Some(parent_directory) = binary_path.parent() {
+                    fs::create_dir_all(parent_directory)?;
                 }
+                fs::write(binary_path, "fn main() {}")?;
             }
 
             // Create dummy entrypoint files for for all libraries
             for lib in &parsed_manifest.lib {
                 // Relative to the manifest path
-                let lib_relative_path = lib.path.clone().expect("Missing path for library.");
+                let lib_relative_path = lib
+                    .path
+                    .as_ref()
+                    .map(|p| p.as_str())
+                    .unwrap_or("src/lib.rs");
                 let lib_path = parent_directory.join(lib_relative_path);
                 if let Some(parent_directory) = lib_path.parent() {
                     fs::create_dir_all(parent_directory)?;

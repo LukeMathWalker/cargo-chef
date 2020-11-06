@@ -1,6 +1,7 @@
 use assert_fs::prelude::{FileTouch, FileWriteStr, PathChild, PathCreateDir};
 use assert_fs::TempDir;
 use chef::Skeleton;
+use std::env;
 
 #[test]
 pub fn no_workspace() {
@@ -26,6 +27,9 @@ path = "src/main.rs"
 
     // Act
     let skeleton = Skeleton::derive(directory.path()).unwrap();
+    let temp = TempDir::new().unwrap();
+    env::set_current_dir(temp.path()).unwrap();
+    skeleton.build_minimum_project().unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
@@ -65,6 +69,9 @@ name = "project_b"
 version = "0.1.0"
 edition = "2018"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 uuid = { version = "=0.8.0", features = ["v4"] }
     "#;
@@ -93,6 +100,9 @@ uuid = { version = "=0.8.0", features = ["v4"] }
 
     // Act
     let skeleton = Skeleton::derive(directory.path()).unwrap();
+    let temp = TempDir::new().unwrap();
+    env::set_current_dir(temp.path()).unwrap();
+    skeleton.build_minimum_project().unwrap();
 
     // Assert
     assert_eq!(3, skeleton.manifests.len());
