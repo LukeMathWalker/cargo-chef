@@ -105,13 +105,9 @@ impl Skeleton {
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
 
             // Create dummy entrypoint files for all binaries
-            for bin in &parsed_manifest.bin.unwrap_or(Vec::new()) {
+            for bin in &parsed_manifest.bin.unwrap_or_default() {
                 // Relative to the manifest path
-                let binary_relative_path = bin
-                    .path
-                    .as_ref()
-                    .map(|p| p.as_str())
-                    .unwrap_or("src/main.rs");
+                let binary_relative_path = bin.path.as_deref().unwrap_or("src/main.rs");
                 let binary_path = parent_directory.join(binary_relative_path);
                 if let Some(parent_directory) = binary_path.parent() {
                     fs::create_dir_all(parent_directory)?;
@@ -122,11 +118,7 @@ impl Skeleton {
             // Create dummy entrypoint files for for all libraries
             for lib in &parsed_manifest.lib {
                 // Relative to the manifest path
-                let lib_relative_path = lib
-                    .path
-                    .as_ref()
-                    .map(|p| p.as_str())
-                    .unwrap_or("src/lib.rs");
+                let lib_relative_path = lib.path.as_deref().unwrap_or("src/lib.rs");
                 let lib_path = parent_directory.join(lib_relative_path);
                 if let Some(parent_directory) = lib_path.parent() {
                     fs::create_dir_all(parent_directory)?;
