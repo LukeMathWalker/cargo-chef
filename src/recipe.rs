@@ -30,7 +30,7 @@ impl Recipe {
         let current_directory = std::env::current_dir()?;
         self.skeleton
             .remove_compiled_dummy_libraries(current_directory, profile, target, target_dir)
-            .context("Failed to clean up dummy artifacts.")?;
+            .context("Failed to clean up dummy compilation artifacts.")?;
         Ok(())
     }
 }
