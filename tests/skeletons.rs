@@ -107,3 +107,55 @@ uuid = { version = "=0.8.0", features = ["v4"] }
     // Assert
     assert_eq!(3, skeleton.manifests.len());
 }
+
+#[test]
+pub fn benches() {
+    // Arrange
+    let content = r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+name = "test-dummy"
+
+[[bench]]
+name = "basics"
+harness = false
+
+[dependencies]
+    "#;
+
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(content).unwrap();
+    recipe_directory.child("src").create_dir_all().unwrap();
+    recipe_directory
+        .child("src")
+        .child("lib.rs")
+        .touch()
+        .unwrap();
+    recipe_directory.child("benches").create_dir_all().unwrap();
+    recipe_directory
+        .child("benches")
+        .child("basics.rs")
+        .touch()
+        .unwrap();
+
+    // Act
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    env::set_current_dir(cook_directory.path()).unwrap();
+    skeleton.build_minimum_project().unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = skeleton.manifests[0].clone();
+    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
+    assert!(cook_directory
+        .child("benches")
+        .child("basics.rs")
+        .path()
+        .exists())
+}
