@@ -19,16 +19,20 @@ path = "src/main.rs"
 [dependencies]
     "#;
 
-    let directory = TempDir::new().unwrap();
-    let manifest = directory.child("Cargo.toml");
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
     manifest.write_str(content).unwrap();
-    directory.child("src").create_dir_all().unwrap();
-    directory.child("src").child("main.rs").touch().unwrap();
+    recipe_directory.child("src").create_dir_all().unwrap();
+    recipe_directory
+        .child("src")
+        .child("main.rs")
+        .touch()
+        .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(directory.path()).unwrap();
-    let temp = TempDir::new().unwrap();
-    env::set_current_dir(temp.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    env::set_current_dir(cook_directory.path()).unwrap();
     skeleton.build_minimum_project().unwrap();
 
     // Assert
@@ -76,10 +80,10 @@ crate-type = ["cdylib"]
 uuid = { version = "=0.8.0", features = ["v4"] }
     "#;
 
-    let directory = TempDir::new().unwrap();
-    let manifest = directory.child("Cargo.toml");
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
     manifest.write_str(workspace_content).unwrap();
-    let src = directory.child("src");
+    let src = recipe_directory.child("src");
     src.create_dir_all().unwrap();
 
     let project_a = src.child("project_a");
@@ -99,9 +103,9 @@ uuid = { version = "=0.8.0", features = ["v4"] }
     project_b.child("src").child("main.rs").touch().unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(directory.path()).unwrap();
-    let temp = TempDir::new().unwrap();
-    env::set_current_dir(temp.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    env::set_current_dir(cook_directory.path()).unwrap();
     skeleton.build_minimum_project().unwrap();
 
     // Assert
