@@ -76,7 +76,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-chef"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -95,9 +95,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-manifest"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e53ff3616aa697d630cb686c75e9d4bc2f13d98d5e02e8917da600f348e8322"
+checksum = "662a1d7c65d8c490564aca14c9b96e04c499f8873a5210bad329e51aa605eee7"
 dependencies = [
  "serde",
  "serde_derive",

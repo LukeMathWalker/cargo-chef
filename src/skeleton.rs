@@ -4,6 +4,7 @@ use fs_err as fs;
 use globwalk::{GlobWalkerBuilder, WalkError};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Skeleton {
@@ -85,22 +86,24 @@ impl Skeleton {
     ///
     /// This function should be called on an empty canvas - i.e. an empty directory apart from
     /// the recipe file used to restore the skeleton.
-    pub fn build_minimum_project(&self) -> Result<(), anyhow::Error> {
+    pub fn build_minimum_project(&self, base_path: &Path) -> Result<(), anyhow::Error> {
         // Save lockfile to disk, if available
         if let Some(lock_file) = &self.lock_file {
-            fs::write("Cargo.lock", lock_file.as_str())?;
+            let lock_file_path = base_path.join(lock_file);
+            fs::write(lock_file_path, lock_file.as_str())?;
         }
 
         // Save all manifests to disks
         for manifest in &self.manifests {
             // Persist manifest
-            let parent_directory = if let Some(parent_directory) = manifest.relative_path.parent() {
+            let manifest_path = base_path.join(&manifest.relative_path);
+            let parent_directory = if let Some(parent_directory) = manifest_path.parent() {
                 fs::create_dir_all(&parent_directory)?;
                 parent_directory.to_path_buf()
             } else {
-                PathBuf::new()
+                base_path.to_path_buf()
             };
-            fs::write(&manifest.relative_path, &manifest.contents)?;
+            fs::write(&manifest_path, &manifest.contents)?;
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
 
@@ -124,6 +127,21 @@ impl Skeleton {
                     fs::create_dir_all(parent_directory)?;
                 }
                 fs::write(lib_path, "")?;
+            }
+
+            // Create dummy entrypoint files for for all benchmarks
+            for bench in &parsed_manifest.bench.unwrap_or_default() {
+                // Relative to the manifest path
+                let bench_name = bench.name.as_ref().context("Missing benchmark name.")?;
+                let bench_relative_path = bench
+                    .path
+                    .clone()
+                    .unwrap_or_else(|| format!("benches/{}.rs", bench_name));
+                let bench_path = parent_directory.join(bench_relative_path);
+                if let Some(parent_directory) = bench_path.parent() {
+                    fs::create_dir_all(parent_directory)?;
+                }
+                fs::write(bench_path, "fn main() {}")?;
             }
 
             // Create dummy build script file if specified
@@ -153,14 +171,18 @@ impl Skeleton {
         base_path: P,
         profile: OptimisationProfile,
         target: Option<String>,
+        target_dir: Option<PathBuf>,
     ) -> Result<(), anyhow::Error> {
-        let mut target_directory = base_path.as_ref().join("target");
+        let mut target_dir = match target_dir {
+            None => base_path.as_ref().join("target"),
+            Some(target_dir) => target_dir,
+        };
         if let Some(target) = target {
-            target_directory = target_directory.join(target.as_str())
+            target_dir = target_dir.join(target.as_str())
         }
         let target_directory = match profile {
-            OptimisationProfile::Release => target_directory.join("release"),
-            OptimisationProfile::Debug => target_directory.join("debug"),
+            OptimisationProfile::Release => target_dir.join("release"),
+            OptimisationProfile::Debug => target_dir.join("debug"),
         };
 
         for manifest in &self.manifests {
