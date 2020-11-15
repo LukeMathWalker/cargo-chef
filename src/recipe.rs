@@ -1,4 +1,5 @@
 use crate::Skeleton;
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -27,12 +28,9 @@ impl Recipe {
         build_dependencies(profile, default_features, features, &target, &target_dir);
 
         let current_directory = std::env::current_dir()?;
-        self.skeleton.remove_compiled_dummy_libraries(
-            current_directory,
-            profile,
-            target,
-            target_dir,
-        )?;
+        self.skeleton
+            .remove_compiled_dummy_libraries(current_directory, profile, target, target_dir)
+            .context("Failed to clean up dummy artifacts.")?;
         Ok(())
     }
 }
