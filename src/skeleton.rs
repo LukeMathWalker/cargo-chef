@@ -89,7 +89,7 @@ impl Skeleton {
     pub fn build_minimum_project(&self, base_path: &Path) -> Result<(), anyhow::Error> {
         // Save lockfile to disk, if available
         if let Some(lock_file) = &self.lock_file {
-            let lock_file_path = base_path.join(lock_file);
+            let lock_file_path = base_path.join("Cargo.lock");
             fs::write(lock_file_path, lock_file.as_str())?;
         }
 
