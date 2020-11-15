@@ -23,7 +23,7 @@ path = "src/main.rs"
     let manifest = directory.child("Cargo.toml");
     manifest.write_str(content).unwrap();
     directory.child("src").create_dir_all().unwrap();
-    directory.child("main.rs").touch().unwrap();
+    directory.child("src").child("main.rs").touch().unwrap();
 
     // Act
     let skeleton = Skeleton::derive(directory.path()).unwrap();
@@ -88,7 +88,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
         .write_str(first_content)
         .unwrap();
     project_a.child("src").create_dir_all().unwrap();
-    project_a.child("main.rs").touch().unwrap();
+    project_a.child("src").child("main.rs").touch().unwrap();
 
     let project_b = src.child("project_b");
     project_b
@@ -96,7 +96,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
         .write_str(second_content)
         .unwrap();
     project_b.child("src").create_dir_all().unwrap();
-    project_b.child("main.rs").touch().unwrap();
+    project_b.child("src").child("main.rs").touch().unwrap();
 
     // Act
     let skeleton = Skeleton::derive(directory.path()).unwrap();
