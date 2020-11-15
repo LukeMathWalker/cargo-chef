@@ -4,6 +4,7 @@ use fs_err as fs;
 use globwalk::{GlobWalkerBuilder, WalkError};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Skeleton {
