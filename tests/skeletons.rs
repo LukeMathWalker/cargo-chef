@@ -1,7 +1,6 @@
 use assert_fs::prelude::{FileTouch, FileWriteStr, PathChild, PathCreateDir};
 use assert_fs::TempDir;
 use chef::Skeleton;
-use std::env;
 
 #[test]
 pub fn no_workspace() {
@@ -32,8 +31,9 @@ path = "src/main.rs"
     // Act
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
-    env::set_current_dir(cook_directory.path()).unwrap();
-    skeleton.build_minimum_project().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path())
+        .unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
@@ -101,13 +101,14 @@ uuid = { version = "=0.8.0", features = ["v4"] }
         .write_str(second_content)
         .unwrap();
     project_b.child("src").create_dir_all().unwrap();
-    project_b.child("src").child("main.rs").touch().unwrap();
+    project_b.child("src").child("lib.rs").touch().unwrap();
 
     // Act
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
-    env::set_current_dir(cook_directory.path()).unwrap();
-    skeleton.build_minimum_project().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path())
+        .unwrap();
 
     // Assert
     assert_eq!(3, skeleton.manifests.len());
@@ -165,8 +166,9 @@ harness = false
     // Act
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
-    env::set_current_dir(cook_directory.path()).unwrap();
-    skeleton.build_minimum_project().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path())
+        .unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());

@@ -24,10 +24,9 @@ impl Recipe {
         target: Option<String>,
         target_dir: Option<PathBuf>,
     ) -> Result<(), anyhow::Error> {
-        self.skeleton.build_minimum_project()?;
-        build_dependencies(profile, default_features, features, &target, &target_dir);
-
         let current_directory = std::env::current_dir()?;
+        self.skeleton.build_minimum_project(&current_directory)?;
+        build_dependencies(profile, default_features, features, &target, &target_dir);
         self.skeleton
             .remove_compiled_dummy_libraries(current_directory, profile, target, target_dir)
             .context("Failed to clean up dummy compilation artifacts.")?;
