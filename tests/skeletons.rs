@@ -39,6 +39,7 @@ path = "src/main.rs"
     assert_eq!(1, skeleton.manifests.len());
     let manifest = skeleton.manifests[0].clone();
     assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
+    assert!(cook_directory.child("src").child("main.rs").path().exists());
 }
 
 #[test]
