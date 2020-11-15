@@ -62,6 +62,9 @@ pub struct Cook {
     /// Build for the target triple.
     #[clap(long)]
     target: Option<String>,
+    /// Directory for all generated artifacts.
+    #[clap(long, env = "CARGO_TARGET_DIR")]
+    target_dir: Option<PathBuf>,
     /// Do not activate the `default` feature.
     #[clap(long)]
     no_default_features: bool,
@@ -86,6 +89,7 @@ fn _main() -> Result<(), anyhow::Error> {
             target,
             no_default_features,
             features,
+            target_dir,
         }) => {
             let features: Option<HashSet<String>> = features.and_then(|features| {
                 if features.is_empty() {
@@ -112,7 +116,7 @@ fn _main() -> Result<(), anyhow::Error> {
             let recipe: Recipe =
                 serde_json::from_str(&serialized).context("Failed to deserialize recipe.")?;
             recipe
-                .cook(profile, default_features, features, target)
+                .cook(profile, default_features, features, target, target_dir)
                 .context("Failed to cook recipe.")?;
         }
         Command::Prepare(Prepare { recipe_path }) => {

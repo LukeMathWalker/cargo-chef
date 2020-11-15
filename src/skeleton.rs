@@ -154,14 +154,18 @@ impl Skeleton {
         base_path: P,
         profile: OptimisationProfile,
         target: Option<String>,
+        target_dir: Option<PathBuf>,
     ) -> Result<(), anyhow::Error> {
-        let mut target_directory = base_path.as_ref().join("target");
+        let mut target_dir = match target_dir {
+            None => base_path.as_ref().join("target"),
+            Some(target_dir) => target_dir,
+        };
         if let Some(target) = target {
-            target_directory = target_directory.join(target.as_str())
+            target_dir = target_dir.join(target.as_str())
         }
         let target_directory = match profile {
-            OptimisationProfile::Release => target_directory.join("release"),
-            OptimisationProfile::Debug => target_directory.join("debug"),
+            OptimisationProfile::Release => target_dir.join("release"),
+            OptimisationProfile::Debug => target_dir.join("debug"),
         };
 
         for manifest in &self.manifests {

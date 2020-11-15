@@ -21,13 +21,18 @@ impl Recipe {
         default_features: DefaultFeatures,
         features: Option<HashSet<String>>,
         target: Option<String>,
+        target_dir: Option<PathBuf>,
     ) -> Result<(), anyhow::Error> {
         self.skeleton.build_minimum_project()?;
-        build_dependencies(profile, default_features, features, &target);
+        build_dependencies(profile, default_features, features, &target, &target_dir);
 
         let current_directory = std::env::current_dir()?;
-        self.skeleton
-            .remove_compiled_dummy_libraries(current_directory, profile, target)?;
+        self.skeleton.remove_compiled_dummy_libraries(
+            current_directory,
+            profile,
+            target,
+            target_dir,
+        )?;
         Ok(())
     }
 }
@@ -49,6 +54,7 @@ fn build_dependencies(
     default_features: DefaultFeatures,
     features: Option<HashSet<String>>,
     target: &Option<String>,
+    target_dir: &Option<PathBuf>,
 ) {
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
@@ -64,6 +70,9 @@ fn build_dependencies(
     }
     if let Some(target) = target {
         command_with_args.arg("--target").arg(target);
+    }
+    if let Some(target_dir) = target_dir {
+        command_with_args.arg("--target-dir").arg(target_dir);
     }
 
     execute_command(command_with_args);
