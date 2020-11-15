@@ -110,6 +110,20 @@ uuid = { version = "=0.8.0", features = ["v4"] }
 
     // Assert
     assert_eq!(3, skeleton.manifests.len());
+    assert!(cook_directory
+        .child("src")
+        .child("project_a")
+        .child("src")
+        .child("main.rs")
+        .path()
+        .exists());
+    assert!(cook_directory
+        .child("src")
+        .child("project_b")
+        .child("src")
+        .child("lib.rs")
+        .path()
+        .exists())
 }
 
 #[test]
