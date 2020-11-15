@@ -21,6 +21,7 @@ path = "src/main.rs"
     let recipe_directory = TempDir::new().unwrap();
     let manifest = recipe_directory.child("Cargo.toml");
     manifest.write_str(content).unwrap();
+    recipe_directory.child("Cargo.lock").touch().unwrap();
     recipe_directory.child("src").create_dir_all().unwrap();
     recipe_directory
         .child("src")
@@ -40,6 +41,7 @@ path = "src/main.rs"
     let manifest = skeleton.manifests[0].clone();
     assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
     assert!(cook_directory.child("src").child("main.rs").path().exists());
+    assert!(cook_directory.child("Cargo.lock").path().exists());
 }
 
 #[test]
