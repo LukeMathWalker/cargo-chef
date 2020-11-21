@@ -144,6 +144,36 @@ impl Skeleton {
                 fs::write(bench_path, "fn main() {}")?;
             }
 
+            // Create dummy entrypoint files for for all tests
+            for test in &parsed_manifest.test.unwrap_or_default() {
+                // Relative to the manifest path
+                let test_name = test.name.as_ref().context("Missing test name.")?;
+                let test_relative_path = test
+                    .path
+                    .clone()
+                    .unwrap_or_else(|| format!("tests/{}.rs", test_name));
+                let test_path = parent_directory.join(test_relative_path);
+                if let Some(parent_directory) = test_path.parent() {
+                    fs::create_dir_all(parent_directory)?;
+                }
+                fs::write(test_path, "fn main() {}")?;
+            }
+
+            // Create dummy entrypoint files for for all examples
+            for example in &parsed_manifest.example.unwrap_or_default() {
+                // Relative to the manifest path
+                let example_name = example.name.as_ref().context("Missing example name.")?;
+                let example_relative_path = example
+                    .path
+                    .clone()
+                    .unwrap_or_else(|| format!("examples/{}.rs", example_name));
+                let example_path = parent_directory.join(example_relative_path);
+                if let Some(parent_directory) = example_path.parent() {
+                    fs::create_dir_all(parent_directory)?;
+                }
+                fs::write(example_path, "fn main() {}")?;
+            }
+
             // Create dummy build script file if specified
             if let Some(package) = parsed_manifest.package {
                 if let Some(build) = package.build {
