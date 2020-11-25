@@ -116,15 +116,15 @@ As long as your dependencies do not change the `recipe.json` file will stay the 
 
 `cargo-chef` has been tested on a few OpenSource projects and some of commercial projects, but our testing has definitely not exhausted the range of possibilities when it comes to `cargo build` customisations and we are sure that there are a few rough edges that will have to be smoothed out - please file issues on [GitHub](https://github.com/LukeMathWalker/cargo-chef).
 
-#### Benefits of `cargo-chef`:
+### Benefits of `cargo-chef`:
 
-A common alternative is to load a minimal `main.rs` into a container with the cargo toml and lockfile to build a docker layer that consists of only your dependencies ([more info here](https://www.lpalmieri.com/posts/fast-rust-docker-builds/#caching-rust-builds)). This means changes to your actual code will only rebuild the code itself. This is fragile compared to `cargo-chef` which is more set-and-forget:
+A common alternative is to load a minimal `main.rs` into a container with `Cargo.toml` and `Cargo.lock` to build a Docker layer that consists of only your dependencies ([more info here](https://www.lpalmieri.com/posts/fast-rust-docker-builds/#caching-rust-builds)). This is fragile compared to `cargo-chef` which will instead:
 
-- automatically picks up multiple crates
-- moving files or crates around is handled automatically
+- automatically pick up all crates in a workspace (and new ones as they are added)
+- keep working when files or crates are moved around, which would instead require manual edits to the `Dockerfile` using the "manual" approach
 - for multiple workspaces fewer intermediary layers are generated
 
-#### Limitations and caveats:
+### Limitations and caveats:
 
 - `cargo cook` and `cargo build` must be executed from the same working directory. If you examine the `*.d` files under `target/debug/deps` for one of your projects using `cat` you will notice that they contain absolute paths referring to the project `target` directory. If moved around, `cargo` will not leverage them as cached dependencies;
 - `cargo build` will build local dependencies (outside of the current project) from scratch, even if they are unchanged, due to the reliance of its fingerprinting logic on timestamps (see [this _long_ issue on `cargo`'s repository](https://github.com/rust-lang/cargo/issues/2644));
