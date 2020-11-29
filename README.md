@@ -122,7 +122,7 @@ A common alternative is to load a minimal `main.rs` into a container with `Cargo
 
 - automatically pick up all crates in a workspace (and new ones as they are added)
 - keep working when files or crates are moved around, which would instead require manual edits to the `Dockerfile` using the "manual" approach
-- for multiple workspaces fewer intermediary layers are generated
+- generate fewer intermediate Docker layers (for workspaces)
 
 ### Limitations and caveats:
 
