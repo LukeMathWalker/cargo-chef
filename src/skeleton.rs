@@ -156,7 +156,7 @@ impl Skeleton {
                 if let Some(parent_directory) = test_path.parent() {
                     fs::create_dir_all(parent_directory)?;
                 }
-                fs::write(test_path, "fn main() {}")?;
+                fs::write(test_path, "")?;
             }
 
             // Create dummy entrypoint files for for all examples
