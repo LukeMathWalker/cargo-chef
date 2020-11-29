@@ -10,6 +10,13 @@ pub struct Recipe {
     pub skeleton: Skeleton,
 }
 
+pub struct TargetArgs {
+    pub benches: bool,
+    pub tests: bool,
+    pub examples: bool,
+    pub all_targets: bool,
+}
+
 impl Recipe {
     pub fn prepare(base_path: PathBuf) -> Result<Self, anyhow::Error> {
         let skeleton = Skeleton::derive(&base_path)?;
@@ -23,10 +30,18 @@ impl Recipe {
         features: Option<HashSet<String>>,
         target: Option<String>,
         target_dir: Option<PathBuf>,
+        target_args: TargetArgs,
     ) -> Result<(), anyhow::Error> {
         let current_directory = std::env::current_dir()?;
         self.skeleton.build_minimum_project(&current_directory)?;
-        build_dependencies(profile, default_features, features, &target, &target_dir);
+        build_dependencies(
+            profile,
+            default_features,
+            features,
+            &target,
+            &target_dir,
+            target_args,
+        );
         self.skeleton
             .remove_compiled_dummy_libraries(current_directory, profile, target, target_dir)
             .context("Failed to clean up dummy compilation artifacts.")?;
@@ -52,6 +67,7 @@ fn build_dependencies(
     features: Option<HashSet<String>>,
     target: &Option<String>,
     target_dir: &Option<PathBuf>,
+    target_args: TargetArgs,
 ) {
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
@@ -70,6 +86,18 @@ fn build_dependencies(
     }
     if let Some(target_dir) = target_dir {
         command_with_args.arg("--target-dir").arg(target_dir);
+    }
+    if target_args.benches {
+        command_with_args.arg("--benches");
+    }
+    if target_args.tests {
+        command_with_args.arg("--tests");
+    }
+    if target_args.examples {
+        command_with_args.arg("--examples");
+    }
+    if target_args.all_targets {
+        command_with_args.arg("--all-targets");
     }
 
     execute_command(command_with_args);

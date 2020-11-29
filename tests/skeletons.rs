@@ -182,3 +182,97 @@ harness = false
         .path()
         .exists())
 }
+
+#[test]
+pub fn tests() {
+    // Arrange
+    let content = r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2018"
+
+[[test]]
+name = "foo"
+    "#;
+
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(content).unwrap();
+    recipe_directory.child("src").create_dir_all().unwrap();
+    recipe_directory
+        .child("src")
+        .child("lib.rs")
+        .touch()
+        .unwrap();
+    recipe_directory.child("tests").create_dir_all().unwrap();
+    recipe_directory
+        .child("tests")
+        .child("foo.rs")
+        .touch()
+        .unwrap();
+
+    // Act
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path())
+        .unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = skeleton.manifests[0].clone();
+    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
+    assert!(cook_directory
+        .child("tests")
+        .child("foo.rs")
+        .path()
+        .exists())
+}
+
+#[test]
+pub fn examples() {
+    // Arrange
+    let content = r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2018"
+
+[[example]]
+name = "foo"
+    "#;
+
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(content).unwrap();
+    recipe_directory.child("src").create_dir_all().unwrap();
+    recipe_directory
+        .child("src")
+        .child("lib.rs")
+        .touch()
+        .unwrap();
+    recipe_directory.child("examples").create_dir_all().unwrap();
+    recipe_directory
+        .child("examples")
+        .child("foo.rs")
+        .touch()
+        .unwrap();
+
+    // Act
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path())
+        .unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = skeleton.manifests[0].clone();
+    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
+    assert!(cook_directory
+        .child("examples")
+        .child("foo.rs")
+        .path()
+        .exists())
+}

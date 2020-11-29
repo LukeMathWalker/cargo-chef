@@ -1,5 +1,5 @@
 use anyhow::Context;
-use chef::{DefaultFeatures, OptimisationProfile, Recipe};
+use chef::{DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::Clap;
 use fs_err as fs;
 use std::collections::HashSet;
@@ -71,6 +71,19 @@ pub struct Cook {
     /// Space or comma separated list of features to activate.
     #[clap(long, use_delimiter = true, value_delimiter = ",")]
     features: Option<Vec<String>>,
+    /// Build all benches
+    #[clap(long)]
+    benches: bool,
+    /// Build all tests
+    #[clap(long)]
+    tests: bool,
+    /// Build all examples
+    #[clap(long)]
+    examples: bool,
+    /// Build all targets.
+    /// This is equivalent to specifying `--tests --benches --examples`.
+    #[clap(long)]
+    all_targets: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -90,6 +103,10 @@ fn _main() -> Result<(), anyhow::Error> {
             no_default_features,
             features,
             target_dir,
+            benches,
+            tests,
+            examples,
+            all_targets,
         }) => {
             let features: Option<HashSet<String>> = features.and_then(|features| {
                 if features.is_empty() {
@@ -115,8 +132,21 @@ fn _main() -> Result<(), anyhow::Error> {
                 .context("Failed to read recipe from the specified path.")?;
             let recipe: Recipe =
                 serde_json::from_str(&serialized).context("Failed to deserialize recipe.")?;
+            let target_args = TargetArgs {
+                benches,
+                tests,
+                examples,
+                all_targets,
+            };
             recipe
-                .cook(profile, default_features, features, target, target_dir)
+                .cook(
+                    profile,
+                    default_features,
+                    features,
+                    target,
+                    target_dir,
+                    target_args,
+                )
                 .context("Failed to cook recipe.")?;
         }
         Command::Prepare(Prepare { recipe_path }) => {
