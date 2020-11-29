@@ -71,16 +71,17 @@ pub struct Cook {
     /// Space or comma separated list of features to activate.
     #[clap(long, use_delimiter = true, value_delimiter = ",")]
     features: Option<Vec<String>>,
-    /// Build benchmarks
+    /// Build all benches
     #[clap(long)]
     benches: bool,
-    /// Build tests
+    /// Build all tests
     #[clap(long)]
     tests: bool,
-    /// Build examples
+    /// Build all examples
     #[clap(long)]
     examples: bool,
-    /// Build all targets
+    /// Build all targets.
+    /// This is equivalent to specifying `--tests --benches --examples`.
     #[clap(long)]
     all_targets: bool,
 }
