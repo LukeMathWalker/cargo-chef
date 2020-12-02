@@ -34,7 +34,7 @@ path = "src/main.rs"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -110,7 +110,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -170,7 +170,7 @@ harness = false
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -217,7 +217,7 @@ name = "foo"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -264,7 +264,7 @@ name = "foo"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -347,7 +347,7 @@ pub fn config_toml() {
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -394,7 +394,7 @@ pub fn version() {
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -447,7 +447,7 @@ version = "1.2.3"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -563,7 +563,7 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
