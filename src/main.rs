@@ -1,8 +1,7 @@
 use anyhow::Context;
-use chef::{DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
+use chef::{OptimisationProfile, Recipe};
 use clap::Clap;
 use fs_err as fs;
-use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// Cache the dependencies of your Rust project.
@@ -56,34 +55,22 @@ pub struct Cook {
     /// It defaults to "recipe.json".
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
-    /// Build in release mode.
-    #[clap(long)]
-    release: bool,
+    /// Arguments for cargo-build.
+    #[clap(last = true)]
+    args: Vec<String>,
+}
+
+#[derive(Clap)]
+pub struct Build {
     /// Build for the target triple.
     #[clap(long)]
     target: Option<String>,
+    /// Build in release mode.
+    #[clap(long)]
+    release: bool,
     /// Directory for all generated artifacts.
     #[clap(long, env = "CARGO_TARGET_DIR")]
     target_dir: Option<PathBuf>,
-    /// Do not activate the `default` feature.
-    #[clap(long)]
-    no_default_features: bool,
-    /// Space or comma separated list of features to activate.
-    #[clap(long, use_delimiter = true, value_delimiter = ",")]
-    features: Option<Vec<String>>,
-    /// Build all benches
-    #[clap(long)]
-    benches: bool,
-    /// Build all tests
-    #[clap(long)]
-    tests: bool,
-    /// Build all examples
-    #[clap(long)]
-    examples: bool,
-    /// Build all targets.
-    /// This is equivalent to specifying `--tests --benches --examples`.
-    #[clap(long)]
-    all_targets: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -96,25 +83,12 @@ fn _main() -> Result<(), anyhow::Error> {
     };
 
     match command {
-        Command::Cook(Cook {
-            recipe_path,
-            release,
-            target,
-            no_default_features,
-            features,
-            target_dir,
-            benches,
-            tests,
-            examples,
-            all_targets,
-        }) => {
-            let features: Option<HashSet<String>> = features.and_then(|features| {
-                if features.is_empty() {
-                    None
-                } else {
-                    Some(features.into_iter().collect())
-                }
-            });
+        Command::Cook(Cook { recipe_path, args }) => {
+            let Build {
+                release,
+                target,
+                target_dir,
+            } = Build::parse_from(&args);
 
             let profile = if release {
                 OptimisationProfile::Release
@@ -122,31 +96,12 @@ fn _main() -> Result<(), anyhow::Error> {
                 OptimisationProfile::Debug
             };
 
-            let default_features = if no_default_features {
-                DefaultFeatures::Disabled
-            } else {
-                DefaultFeatures::Enabled
-            };
-
             let serialized = fs::read_to_string(recipe_path)
                 .context("Failed to read recipe from the specified path.")?;
             let recipe: Recipe =
                 serde_json::from_str(&serialized).context("Failed to deserialize recipe.")?;
-            let target_args = TargetArgs {
-                benches,
-                tests,
-                examples,
-                all_targets,
-            };
             recipe
-                .cook(
-                    profile,
-                    default_features,
-                    features,
-                    target,
-                    target_dir,
-                    target_args,
-                )
+                .cook(profile, target, target_dir, &args)
                 .context("Failed to cook recipe.")?;
         }
         Command::Prepare(Prepare { recipe_path }) => {
