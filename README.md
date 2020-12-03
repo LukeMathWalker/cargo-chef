@@ -85,8 +85,8 @@ FROM rust as planner
 WORKDIR app
 # We only pay the installation cost once, 
 # it will be cached from the second build onwards
-RUN cargo install cargo-chef 
-COPY . .
+RUN cargo install cargo-chef
+COPY Cargo.toml Cargo.lock /app/
 RUN cargo chef prepare  --recipe-path recipe.json
 
 FROM rust as cacher
