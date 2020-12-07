@@ -27,7 +27,7 @@
 2. [Benefits vs Limitations](#benefits-vs-limitations)
 3. [License](#license)
 
-## How To Install 
+## How To Install
 
 You can install `cargo-chef` from [crates.io](https://crates.io) with
 
@@ -63,9 +63,9 @@ SUBCOMMANDS:
 cargo chef prepare --recipe-path recipe.json
 ```
 
-Nothing too mysterious going on here, you can examine the `recipe.json` file: it contains the skeleton of your project (e.g. all the `Cargo.toml` files with their relative path, the `Cargo.lock` file is available) plus a few additional pieces of information.  
+Nothing too mysterious going on here, you can examine the `recipe.json` file: it contains the skeleton of your project (e.g. all the `Cargo.toml` files with their relative path, the `Cargo.lock` file is available) plus a few additional pieces of information.
  In particular it makes sure that all libraries and binaries are explicitly declared in their respective `Cargo.toml` files even if they can be found at the canonical default location (`src/main.rs` for a binary, `src/lib.rs` for a library).
- 
+
 The `recipe.json` is the equivalent of the Python `requirements.txt` file - it is the only input required for `cargo chef cook`, the command that will build out our dependencies:
 
 ```bash
@@ -83,9 +83,9 @@ You can leverage it in a Dockerfile:
 ```dockerfile
 FROM rust as planner
 WORKDIR app
-# We only pay the installation cost once, 
+# We only pay the installation cost once,
 # it will be cached from the second build onwards
-RUN cargo install cargo-chef 
+RUN cargo install cargo-chef
 COPY . .
 RUN cargo chef prepare  --recipe-path recipe.json
 
@@ -100,7 +100,7 @@ WORKDIR app
 COPY . .
 # Copy over the cached dependencies
 COPY --from=cacher /app/target target
-COPY --from=cacher /usr/local/cargo /usr/local/cargo
+COPY --from=cacher $CARGO_HOME $CARGO_HOME
 RUN cargo build --release --bin app
 
 FROM rust as runtime
@@ -109,7 +109,7 @@ COPY --from=builder /app/target/release/app /usr/local/bin
 ENTRYPOINT ["./usr/local/bin/app"]
 ```
 
-We are using four stages: the first computes the recipe file, the second caches our dependencies, the third builds the binary and the fourth is our runtime environment.  
+We are using four stages: the first computes the recipe file, the second caches our dependencies, the third builds the binary and the fourth is our runtime environment.
 As long as your dependencies do not change the `recipe.json` file will stay the same, therefore the outcome of `cargo cargo chef cook --release --recipe-path recipe.json` will be cached, massively speeding up your builds (up to 5x measured on some commercial projects).
 
 ## Benefits vs Limitations
