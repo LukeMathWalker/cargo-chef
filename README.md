@@ -100,7 +100,7 @@ WORKDIR app
 COPY . .
 # Copy over the cached dependencies
 COPY --from=cacher /app/target target
-COPY --from=cacher /usr/local/cargo /usr/local/cargo
+COPY --from=cacher $CARGO_HOME $CARGO_HOME
 RUN cargo build --release --bin app
 
 FROM rust as runtime
