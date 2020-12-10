@@ -110,14 +110,18 @@ fn _main() -> Result<(), anyhow::Error> {
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
-                eprintln!("cargo-chef is not meant to be run in an interactive environment \
+                eprintln!(
+                    "cargo-chef is not meant to be run in an interactive environment \
                 and will overwrite some existing files (namely any `lib.rs`, `main.rs` and \
-                `Cargo.toml` it finds).");
+                `Cargo.toml` it finds)."
+                );
                 eprintln!();
                 eprint!("To continue anyway, type `yes`: ");
 
                 let mut answer = String::with_capacity(3);
-                std::io::stdin().read_line(&mut answer).context("Failed to read from stdin")?;
+                std::io::stdin()
+                    .read_line(&mut answer)
+                    .context("Failed to read from stdin")?;
 
                 if "yes" != answer.trim() {
                     std::process::exit(1);
