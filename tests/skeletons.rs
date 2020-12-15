@@ -276,3 +276,40 @@ name = "foo"
         .path()
         .exists())
 }
+
+#[test]
+pub fn test_auto_bin_ordering() {
+    // Arrange
+    let content = r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2018"
+"#;
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(content).unwrap();
+    let bin_dir = recipe_directory.child("src").child("bin");
+    bin_dir.create_dir_all().unwrap();
+    bin_dir.child("a.rs").touch().unwrap();
+    bin_dir.child("b.rs").touch().unwrap();
+    bin_dir.child("c.rs").touch().unwrap();
+    bin_dir.child("d.rs").touch().unwrap();
+    bin_dir.child("e.rs").touch().unwrap();
+    bin_dir.child("f.rs").touch().unwrap();
+
+    // Act
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+
+    // What we're testing is that auto-directories come back in the same order.
+    // Since it's possible that the directories just happen to come back in the
+    // same order randomly, we'll run this a few times to increase the
+    // likelihood of triggering the problem if it exists.
+    for _ in 0..5 {
+        let skeleton2 = Skeleton::derive(recipe_directory.path()).unwrap();
+        assert_eq!(
+            skeleton, skeleton2,
+            "Skeletons of equal directories are not equal. Check [[bin]] ordering in manifest?"
+        );
+    }
+}
