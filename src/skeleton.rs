@@ -40,7 +40,30 @@ impl Skeleton {
                     // As suggested in issue #142 on toml-rs github repository
                     // First convert the Config instance to a toml Value,
                     // then serialize it to toml
-                    let intermediate = toml::Value::try_from(parsed)?;
+                    let mut intermediate = toml::Value::try_from(parsed)?;
+
+                    // Specifically, toml gives no guarantees to the ordering of the auto binaries
+                    // in its results. We will manually sort these to ensure that the output
+                    // manifest will match.
+                    let bins = intermediate
+                        .get_mut("bin")
+                        .and_then(|bins| bins.as_array_mut());
+                    if let Some(bins) = bins {
+                        bins.sort_by(|bin_a, bin_b| {
+                            let bin_a_path = bin_a
+                                .as_table()
+                                .and_then(|table| table.get("path"))
+                                .and_then(|path| path.as_str())
+                                .unwrap();
+                            let bin_b_path = bin_b
+                                .as_table()
+                                .and_then(|table| table.get("path"))
+                                .and_then(|path| path.as_str())
+                                .unwrap();
+                            bin_a_path.cmp(bin_b_path)
+                        });
+                    }
+
                     // The serialised contents might be different from the original manifest!
                     let contents = toml::to_string(&intermediate)?;
 
