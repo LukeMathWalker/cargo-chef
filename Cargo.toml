@@ -28,9 +28,9 @@ env_logger = "0.8.1"
 globwalk = "0.8.0"
 anyhow = "1.0.33"
 pathdiff = "0.2.0"
-cargo-manifest = "0.2.1"
+cargo-manifest = "0.2.2"
 fs-err = "2.5.0"
-toml = "0.5.7"
+toml = { version = "0.5.7", features = ["preserve_order"] }
 
 [dev-dependencies]
 assert_cmd = "1.0.1"
