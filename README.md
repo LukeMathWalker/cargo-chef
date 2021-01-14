@@ -106,7 +106,7 @@ RUN cargo build --release --bin app
 FROM rust as runtime
 WORKDIR app
 COPY --from=builder /app/target/release/app /usr/local/bin
-ENTRYPOINT ["./usr/local/bin/app"]
+ENTRYPOINT ["/usr/local/bin/app"]
 ```
 
 We are using four stages: the first computes the recipe file, the second caches our dependencies, the third builds the binary and the fourth is our runtime environment.  
