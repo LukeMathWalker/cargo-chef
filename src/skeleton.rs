@@ -241,13 +241,10 @@ impl Skeleton {
         for manifest in &self.manifests {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
+            let package = parsed_manifest.package.as_ref().unwrap();
 
             for lib in &parsed_manifest.lib {
-                let library_name = lib
-                    .name
-                    .clone()
-                    .unwrap_or_else(|| parsed_manifest.package.as_ref().unwrap().name.to_owned())
-                    .replace("-", "_");
+                let library_name = lib.name.as_ref().unwrap_or(&package.name).replace("-", "_");
                 let walker =
                     GlobWalkerBuilder::new(&target_directory, format!("/**/lib{}*", library_name))
                         .build()?;
