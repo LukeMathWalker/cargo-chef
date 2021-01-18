@@ -219,7 +219,7 @@ impl Skeleton {
     /// workspace.
     /// Given the usage of dummy `lib.rs` files, keeping them around leads to funny compilation
     /// errors if they are a dependency of another project within the workspace.
-    pub fn remove_compiled_dummy_libraries<P: AsRef<Path>>(
+    pub fn remove_compiled_dummies<P: AsRef<Path>>(
         &self,
         base_path: P,
         profile: OptimisationProfile,
