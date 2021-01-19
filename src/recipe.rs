@@ -43,7 +43,7 @@ impl Recipe {
             target_args,
         );
         self.skeleton
-            .remove_compiled_dummy_libraries(current_directory, profile, target, target_dir)
+            .remove_compiled_dummies(current_directory, profile, target, target_dir)
             .context("Failed to clean up dummy compilation artifacts.")?;
         Ok(())
     }

@@ -215,11 +215,11 @@ impl Skeleton {
         Ok(())
     }
 
-    /// Scan the target directory and remove all compilation artifacts for libraries from the current
-    /// workspace.
-    /// Given the usage of dummy `lib.rs` files, keeping them around leads to funny compilation
-    /// errors if they are a dependency of another project within the workspace.
-    pub fn remove_compiled_dummy_libraries<P: AsRef<Path>>(
+    /// Scan the target directory and remove all compilation artifacts for libraries and build
+    /// scripts from the current workspace.
+    /// Given the usage of dummy `lib.rs` and `build.rs` files, keeping them around leads to funny
+    /// compilation errors.
+    pub fn remove_compiled_dummies<P: AsRef<Path>>(
         &self,
         base_path: P,
         profile: OptimisationProfile,
@@ -241,16 +241,27 @@ impl Skeleton {
         for manifest in &self.manifests {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
+            let package = parsed_manifest.package.as_ref().unwrap();
 
+            // Remove dummy libraries.
             for lib in &parsed_manifest.lib {
-                let library_name = lib
-                    .name
-                    .clone()
-                    .unwrap_or_else(|| parsed_manifest.package.as_ref().unwrap().name.to_owned())
-                    .replace("-", "_");
+                let library_name = lib.name.as_ref().unwrap_or(&package.name).replace("-", "_");
                 let walker =
                     GlobWalkerBuilder::new(&target_directory, format!("/**/lib{}*", library_name))
                         .build()?;
+                for file in walker {
+                    let file = file?;
+                    fs::remove_file(file.path())?;
+                }
+            }
+
+            // Remove dummy build.rs script artifacts.
+            if package.build.is_some() {
+                let walker = GlobWalkerBuilder::new(
+                    &target_directory,
+                    format!("/build/{}-*/build[-_]script[-_]build*", package.name),
+                )
+                .build()?;
                 for file in walker {
                     let file = file?;
                     fs::remove_file(file.path())?;
