@@ -37,6 +37,11 @@ cargo install cargo-chef
 
 ## How to use
 
+> :warning:  **cargo-chef is not meant to be run locally**  
+> Its primary use-case is to speed up container builds by running BEFORE
+> the actual source code is copied over. Don't run it on existing codebases to avoid
+> having files being overwritten.
+
 `cargo-chef` exposes two commands: `prepare` and `cook`:
 
 ```bash
