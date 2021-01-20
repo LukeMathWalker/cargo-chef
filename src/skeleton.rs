@@ -241,30 +241,32 @@ impl Skeleton {
         for manifest in &self.manifests {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
-            let package = parsed_manifest.package.as_ref().unwrap();
-
-            // Remove dummy libraries.
-            for lib in &parsed_manifest.lib {
-                let library_name = lib.name.as_ref().unwrap_or(&package.name).replace("-", "_");
-                let walker =
-                    GlobWalkerBuilder::new(&target_directory, format!("/**/lib{}*", library_name))
-                        .build()?;
-                for file in walker {
-                    let file = file?;
-                    fs::remove_file(file.path())?;
+            if let Some(package) = parsed_manifest.package.as_ref() {
+                // Remove dummy libraries.
+                for lib in &parsed_manifest.lib {
+                    let library_name = lib.name.as_ref().unwrap_or(&package.name).replace("-", "_");
+                    let walker = GlobWalkerBuilder::new(
+                        &target_directory,
+                        format!("/**/lib{}*", library_name),
+                    )
+                    .build()?;
+                    for file in walker {
+                        let file = file?;
+                        fs::remove_file(file.path())?;
+                    }
                 }
-            }
 
-            // Remove dummy build.rs script artifacts.
-            if package.build.is_some() {
-                let walker = GlobWalkerBuilder::new(
-                    &target_directory,
-                    format!("/build/{}-*/build[-_]script[-_]build*", package.name),
-                )
-                .build()?;
-                for file in walker {
-                    let file = file?;
-                    fs::remove_file(file.path())?;
+                // Remove dummy build.rs script artifacts.
+                if package.build.is_some() {
+                    let walker = GlobWalkerBuilder::new(
+                        &target_directory,
+                        format!("/build/{}-*/build[-_]script[-_]build*", package.name),
+                    )
+                    .build()?;
+                    for file in walker {
+                        let file = file?;
+                        fs::remove_file(file.path())?;
+                    }
                 }
             }
         }
