@@ -1,6 +1,7 @@
 use anyhow::Context;
 use chef::{DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::Clap;
+use clap::crate_version;
 use fs_err as fs;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -9,7 +10,7 @@ use std::path::PathBuf;
 #[derive(Clap)]
 #[clap(
     bin_name = "cargo",
-    version = "0.1",
+    version = crate_version!(),
     author = "Luca Palmieri <rust@lpalmieri.com>"
 )]
 pub struct Cli {
