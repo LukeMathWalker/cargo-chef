@@ -1,7 +1,7 @@
 use anyhow::Context;
 use chef::{DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
-use clap::Clap;
 use clap::crate_version;
+use clap::Clap;
 use fs_err as fs;
 use std::collections::HashSet;
 use std::path::PathBuf;
