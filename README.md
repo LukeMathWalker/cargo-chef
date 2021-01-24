@@ -86,6 +86,36 @@ cargo chef cook --release --recipe-path recipe.json
 You can leverage it in a Dockerfile:
 
 ```dockerfile
+FROM lukemathwalker/cargo-chef as planner
+WORKDIR app
+COPY . .
+RUN cargo chef prepare  --recipe-path recipe.json
+
+FROM lukemathwalker/cargo-chef as cacher
+WORKDIR app
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+FROM rust as builder
+WORKDIR app
+COPY . .
+# Copy over the cached dependencies
+COPY --from=cacher /app/target target
+COPY --from=cacher $CARGO_HOME $CARGO_HOME
+RUN cargo build --release --bin app
+
+FROM rust as runtime
+WORKDIR app
+COPY --from=builder /app/target/release/app /usr/local/bin
+ENTRYPOINT ["/usr/local/bin/app"]
+```
+
+We are using four stages: the first computes the recipe file, the second caches our dependencies, the third builds the binary and the fourth is our runtime environment.  
+As long as your dependencies do not change the `recipe.json` file will stay the same, therefore the outcome of `cargo cargo chef cook --release --recipe-path recipe.json` will be cached, massively speeding up your builds (up to 5x measured on some commercial projects).
+
+If you do not want to use the `lukemathwalker/cargo-chef` image, you can simply install the CLI within the Dockerfile:
+
+```dockerfile
 FROM rust as planner
 WORKDIR app
 # We only pay the installation cost once, 
@@ -113,9 +143,6 @@ WORKDIR app
 COPY --from=builder /app/target/release/app /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/app"]
 ```
-
-We are using four stages: the first computes the recipe file, the second caches our dependencies, the third builds the binary and the fourth is our runtime environment.  
-As long as your dependencies do not change the `recipe.json` file will stay the same, therefore the outcome of `cargo cargo chef cook --release --recipe-path recipe.json` will be cached, massively speeding up your builds (up to 5x measured on some commercial projects).
 
 ## Benefits vs Limitations
 
