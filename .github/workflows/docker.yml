@@ -1,0 +1,44 @@
+name: Build Docker images
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/docker.yml'
+      - 'docker/**'
+  schedule:
+    - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
+jobs:
+  build:
+    name: Build and push
+    runs-on: ubuntu-latest
+    env:
+      RUST_IMAGE_TAG: latest
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          docker login --username $DOCKERHUB_USERNAME --password $DOCKERHUB_TOKEN
+
+          RUST_IMAGE=rust:$RUST_IMAGE_TAG
+          RUST_VERSION=$(docker run --rm $RUST_IMAGE rustc --version)
+          echo "Rust version in $RUST_IMAGE is $RUST_VERSION."
+
+          CHEF_IMAGE=$DOCKERHUB_USERNAME/cargo-chef:$RUST_IMAGE_TAG
+          CHEF_RUST_VERSION=$(docker run --rm $CHEF_IMAGE rustc --version || echo "none")
+          echo "Rust version in $CHEF_IMAGE is $CHEF_RUST_VERSION."
+          CHEF_VERSION=$(docker run --rm $CHEF_IMAGE cargo install --list | grep "^cargo-chef v" | cut -d v -f 2 | cut -d : -f 1 || echo "none")
+          echo "cargo chef version in $CHEF_IMAGE is $CHEF_VERSION."
+
+          # Somewhat tricky way to determine latest version without installing anything
+          LATEST_CHEF=$(cargo search --limit 1 cargo-chef | head -n 1 | cut -d '"' -f 2)
+          echo "Latest cargo chef version on crates.io is $LATEST_CHEF."
+
+          if [ "$RUST_VERSION" == "$CHEF_RUST_VERSION" -a "$LATEST_CHEF" == "$CHEF_VERSION" ]; then
+            echo "All versions up-to-date, existing early."
+            exit 0
+          fi
+
+          docker build docker/ -t $CHEF_IMAGE --build-arg=BASE_IMAGE=$RUST_IMAGE
+          docker push $CHEF_IMAGE
