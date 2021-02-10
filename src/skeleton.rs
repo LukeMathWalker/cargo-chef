@@ -179,7 +179,11 @@ impl Skeleton {
                 if let Some(parent_directory) = test_path.parent() {
                     fs::create_dir_all(parent_directory)?;
                 }
-                fs::write(test_path, "")?;
+                if test.harness {
+                    fs::write(test_path, "")?;
+                } else {
+                    fs::write(test_path, "fn main() {}")?;
+                }
             }
 
             // Create dummy entrypoint files for for all examples
