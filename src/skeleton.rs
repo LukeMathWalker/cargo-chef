@@ -203,16 +203,14 @@ impl Skeleton {
 
             // Create dummy build script file if specified
             if let Some(package) = parsed_manifest.package {
-                if let Some(build) = package.build {
-                    if let cargo_manifest::Value::String(build_raw_path) = build {
-                        // Relative to the manifest path
-                        let build_relative_path = PathBuf::from(build_raw_path);
-                        let build_path = parent_directory.join(build_relative_path);
-                        if let Some(parent_directory) = build_path.parent() {
-                            fs::create_dir_all(parent_directory)?;
-                        }
-                        fs::write(build_path, "fn main() {}")?;
+                if let Some(cargo_manifest::Value::String(build_raw_path)) = package.build {
+                    // Relative to the manifest path
+                    let build_relative_path = PathBuf::from(build_raw_path);
+                    let build_path = parent_directory.join(build_relative_path);
+                    if let Some(parent_directory) = build_path.parent() {
+                        fs::create_dir_all(parent_directory)?;
                     }
+                    fs::write(build_path, "fn main() {}")?;
                 }
             }
         }
