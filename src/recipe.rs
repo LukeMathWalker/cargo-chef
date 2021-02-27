@@ -31,6 +31,8 @@ impl Recipe {
         target: Option<String>,
         target_dir: Option<PathBuf>,
         target_args: TargetArgs,
+        manifest_path: Option<PathBuf>,
+        package: Option<String>,
     ) -> Result<(), anyhow::Error> {
         let current_directory = std::env::current_dir()?;
         self.skeleton.build_minimum_project(&current_directory)?;
@@ -41,6 +43,8 @@ impl Recipe {
             &target,
             &target_dir,
             target_args,
+            manifest_path,
+            package,
         );
         self.skeleton
             .remove_compiled_dummies(current_directory, profile, target, target_dir)
@@ -68,6 +72,8 @@ fn build_dependencies(
     target: &Option<String>,
     target_dir: &Option<PathBuf>,
     target_args: TargetArgs,
+    manifest_path: Option<PathBuf>,
+    package: Option<String>,
 ) {
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
@@ -98,6 +104,12 @@ fn build_dependencies(
     }
     if target_args.all_targets {
         command_with_args.arg("--all-targets");
+    }
+    if let Some(manifest_path) = manifest_path {
+        command_with_args.arg("--manifest-path").arg(manifest_path);
+    }
+    if let Some(package) = package {
+        command_with_args.arg("--package").arg(package);
     }
 
     execute_command(command_with_args);
