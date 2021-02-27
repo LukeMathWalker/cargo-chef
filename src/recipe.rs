@@ -82,11 +82,7 @@ fn build_dependencies(args: &CookArgs) {
         command_with_args.arg("--no-default-features");
     }
     if let Some(features) = features {
-        let feature_flag = features
-            .into_iter()
-            .cloned()
-            .collect::<Vec<String>>()
-            .join(",");
+        let feature_flag = features.iter().cloned().collect::<Vec<String>>().join(",");
         command_with_args.arg("--features").arg(feature_flag);
     }
     if let Some(target) = target {
