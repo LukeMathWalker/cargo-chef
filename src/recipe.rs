@@ -17,33 +17,34 @@ pub struct TargetArgs {
     pub all_targets: bool,
 }
 
+pub struct CookArgs {
+    pub profile: OptimisationProfile,
+    pub default_features: DefaultFeatures,
+    pub features: Option<HashSet<String>>,
+    pub target: Option<String>,
+    pub target_dir: Option<PathBuf>,
+    pub target_args: TargetArgs,
+    pub manifest_path: Option<PathBuf>,
+    pub package: Option<String>,
+}
+
 impl Recipe {
     pub fn prepare(base_path: PathBuf) -> Result<Self, anyhow::Error> {
         let skeleton = Skeleton::derive(&base_path)?;
         Ok(Recipe { skeleton })
     }
 
-    pub fn cook(
-        &self,
-        profile: OptimisationProfile,
-        default_features: DefaultFeatures,
-        features: Option<HashSet<String>>,
-        target: Option<String>,
-        target_dir: Option<PathBuf>,
-        target_args: TargetArgs,
-    ) -> Result<(), anyhow::Error> {
+    pub fn cook(&self, args: CookArgs) -> Result<(), anyhow::Error> {
         let current_directory = std::env::current_dir()?;
         self.skeleton.build_minimum_project(&current_directory)?;
-        build_dependencies(
-            profile,
-            default_features,
-            features,
-            &target,
-            &target_dir,
-            target_args,
-        );
+        build_dependencies(&args);
         self.skeleton
-            .remove_compiled_dummies(current_directory, profile, target, target_dir)
+            .remove_compiled_dummies(
+                current_directory,
+                args.profile,
+                args.target,
+                args.target_dir,
+            )
             .context("Failed to clean up dummy compilation artifacts.")?;
         Ok(())
     }
@@ -61,24 +62,27 @@ pub enum DefaultFeatures {
     Disabled,
 }
 
-fn build_dependencies(
-    profile: OptimisationProfile,
-    default_features: DefaultFeatures,
-    features: Option<HashSet<String>>,
-    target: &Option<String>,
-    target_dir: &Option<PathBuf>,
-    target_args: TargetArgs,
-) {
+fn build_dependencies(args: &CookArgs) {
+    let CookArgs {
+        profile,
+        default_features,
+        features,
+        target,
+        target_dir,
+        target_args,
+        manifest_path,
+        package,
+    } = args;
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
-    if profile == OptimisationProfile::Release {
+    if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");
     }
-    if default_features == DefaultFeatures::Disabled {
+    if default_features == &DefaultFeatures::Disabled {
         command_with_args.arg("--no-default-features");
     }
     if let Some(features) = features {
-        let feature_flag = features.into_iter().collect::<Vec<_>>().join(",");
+        let feature_flag = features.iter().cloned().collect::<Vec<String>>().join(",");
         command_with_args.arg("--features").arg(feature_flag);
     }
     if let Some(target) = target {
@@ -98,6 +102,12 @@ fn build_dependencies(
     }
     if target_args.all_targets {
         command_with_args.arg("--all-targets");
+    }
+    if let Some(manifest_path) = manifest_path {
+        command_with_args.arg("--manifest-path").arg(manifest_path);
+    }
+    if let Some(package) = package {
+        command_with_args.arg("--package").arg(package);
     }
 
     execute_command(command_with_args);

@@ -1,5 +1,5 @@
 use anyhow::Context;
-use chef::{DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
+use chef::{CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::crate_version;
 use clap::Clap;
 use fs_err as fs;
@@ -85,6 +85,12 @@ pub struct Cook {
     /// This is equivalent to specifying `--tests --benches --examples`.
     #[clap(long)]
     all_targets: bool,
+    /// Path to Cargo.toml
+    #[clap(long)]
+    manifest_path: Option<PathBuf>,
+    /// Package to build (see `cargo help pkgid`)
+    #[clap(long, short = 'p')]
+    package: Option<String>,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -108,6 +114,8 @@ fn _main() -> Result<(), anyhow::Error> {
             tests,
             examples,
             all_targets,
+            manifest_path,
+            package,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -160,14 +168,16 @@ fn _main() -> Result<(), anyhow::Error> {
                 all_targets,
             };
             recipe
-                .cook(
+                .cook(CookArgs {
                     profile,
                     default_features,
                     features,
                     target,
                     target_dir,
                     target_args,
-                )
+                    manifest_path,
+                    package,
+                })
                 .context("Failed to cook recipe.")?;
         }
         Command::Prepare(Prepare { recipe_path }) => {
