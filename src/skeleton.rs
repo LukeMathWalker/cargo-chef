@@ -9,6 +9,7 @@ use std::str::FromStr;
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Skeleton {
     pub manifests: Vec<Manifest>,
+    pub config_file: Option<String>,
     pub lock_file: Option<String>,
 }
 
@@ -88,6 +89,19 @@ impl Skeleton {
             }
         }
 
+        // As we run primarly in Docker, assume to find config.toml at root level.
+        let config_file = match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
+            Ok(config) => Some(config),
+            Err(e) => {
+                if std::io::ErrorKind::NotFound != e.kind() {
+                    return Err(
+                        anyhow::Error::from(e).context("Failed to read .cargo/config.toml file.")
+                    );
+                }
+                None
+            }
+        };
+
         let lock_file = match fs::read_to_string(base_path.as_ref().join("Cargo.lock")) {
             Ok(lock) => Some(lock),
             Err(e) => {
@@ -99,6 +113,7 @@ impl Skeleton {
         };
         Ok(Skeleton {
             manifests,
+            config_file,
             lock_file,
         })
     }
@@ -114,6 +129,14 @@ impl Skeleton {
         if let Some(lock_file) = &self.lock_file {
             let lock_file_path = base_path.join("Cargo.lock");
             fs::write(lock_file_path, lock_file.as_str())?;
+        }
+
+        // save config file to disk, if available
+        if let Some(config_file) = &self.config_file {
+            let parent_dir = base_path.join(".cargo");
+            let config_file_path = parent_dir.join("config.toml");
+            fs::create_dir_all(parent_dir)?;
+            fs::write(config_file_path, config_file.as_str())?;
         }
 
         // Save all manifests to disks

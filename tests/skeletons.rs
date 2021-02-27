@@ -313,3 +313,50 @@ edition = "2018"
         );
     }
 }
+
+#[test]
+pub fn config_toml() {
+    // Arrange
+    let content = r#"
+        [package]
+        name = "test-dummy"
+        version = "0.1.0"
+        edition = "2018"
+        
+        [dependencies]
+            "#;
+
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(content).unwrap();
+    recipe_directory.child(".cargo").create_dir_all().unwrap();
+    recipe_directory
+        .child(".cargo")
+        .child("config.toml")
+        .touch()
+        .unwrap();
+    recipe_directory.child("src").create_dir_all().unwrap();
+    recipe_directory
+        .child("src")
+        .child("main.rs")
+        .touch()
+        .unwrap();
+
+    // Act
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path())
+        .unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = skeleton.manifests[0].clone();
+    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
+    assert!(cook_directory.child("src").child("main.rs").path().exists());
+    assert!(cook_directory
+        .child(".cargo")
+        .child("config.toml")
+        .path()
+        .exists());
+}
