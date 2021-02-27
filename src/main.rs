@@ -1,5 +1,5 @@
 use anyhow::Context;
-use chef::{DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
+use chef::{CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::crate_version;
 use clap::Clap;
 use fs_err as fs;
@@ -169,7 +169,7 @@ fn _main() -> Result<(), anyhow::Error> {
                 all_targets,
             };
             recipe
-                .cook(
+                .cook(CookArgs {
                     profile,
                     default_features,
                     features,
@@ -178,7 +178,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     target_args,
                     manifest_path,
                     package,
-                )
+                })
                 .context("Failed to cook recipe.")?;
         }
         Command::Prepare(Prepare { recipe_path }) => {
