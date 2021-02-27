@@ -88,7 +88,6 @@ pub struct Cook {
     /// Path to Cargo.toml
     #[clap(long)]
     manifest_path: Option<PathBuf>,
-    // FIXME: also support -p short option
     /// Package to build (see `cargo help pkgid`)
     #[clap(long, short = 'p')]
     package: Option<String>,
