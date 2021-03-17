@@ -37,10 +37,6 @@ impl Skeleton {
                     // Required to detect bin/libs when the related section is omitted from the manifest
                     parsed.complete_from_path(&absolute_path)?;
 
-                    // Workaround :(
-                    // As suggested in issue #142 on toml-rs github repository
-                    // First convert the Config instance to a toml Value,
-                    // then serialize it to toml
                     let mut intermediate = toml::Value::try_from(parsed)?;
 
                     // Specifically, toml gives no guarantees to the ordering of the auto binaries
