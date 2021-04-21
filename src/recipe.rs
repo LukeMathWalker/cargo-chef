@@ -26,6 +26,7 @@ pub struct CookArgs {
     pub target_args: TargetArgs,
     pub manifest_path: Option<PathBuf>,
     pub package: Option<String>,
+    pub workspace: bool,
 }
 
 impl Recipe {
@@ -72,6 +73,7 @@ fn build_dependencies(args: &CookArgs) {
         target_args,
         manifest_path,
         package,
+        workspace,
     } = args;
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
@@ -108,6 +110,9 @@ fn build_dependencies(args: &CookArgs) {
     }
     if let Some(package) = package {
         command_with_args.arg("--package").arg(package);
+    }
+    if *workspace {
+        command_with_args.arg("--workspace");
     }
 
     execute_command(command_with_args);

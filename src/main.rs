@@ -91,6 +91,9 @@ pub struct Cook {
     /// Package to build (see `cargo help pkgid`)
     #[clap(long, short = 'p')]
     package: Option<String>,
+    /// Build all members in the workspace.
+    #[clap(long)]
+    workspace: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -116,6 +119,7 @@ fn _main() -> Result<(), anyhow::Error> {
             all_targets,
             manifest_path,
             package,
+            workspace,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -177,6 +181,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     target_args,
                     manifest_path,
                     package,
+                    workspace,
                 })
                 .context("Failed to cook recipe.")?;
         }
