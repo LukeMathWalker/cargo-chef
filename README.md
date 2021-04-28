@@ -89,7 +89,7 @@ You can leverage it in a Dockerfile:
 FROM lukemathwalker/cargo-chef as planner
 WORKDIR app
 COPY . .
-RUN cargo chef prepare  --recipe-path recipe.json
+RUN cargo chef prepare --recipe-path recipe.json
 
 FROM lukemathwalker/cargo-chef as cacher
 WORKDIR app
