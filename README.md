@@ -144,6 +144,8 @@ COPY --from=builder /app/target/release/app /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/app"]
 ```
 
+When your cacher becomes stale (you start seeing the builder stage rebuild everything), refresh the cacher by passing the `--no-cache` flag to `docker build`.
+
 ## Benefits vs Limitations
 
 `cargo-chef` has been tested on a few OpenSource projects and some of commercial projects, but our testing has definitely not exhausted the range of possibilities when it comes to `cargo build` customisations and we are sure that there are a few rough edges that will have to be smoothed out - please file issues on [GitHub](https://github.com/LukeMathWalker/cargo-chef).
