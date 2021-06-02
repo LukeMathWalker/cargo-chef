@@ -199,3 +199,10 @@ fn main() -> Result<(), anyhow::Error> {
     env_logger::init();
     _main()
 }
+
+#[test]
+fn test_pass_through() {
+    let args = vec!["cargo", "chef", "cook", "--recipe-path", "./recipe.json"];
+    let cli = Cli::parse_from(args);
+    assert!(matches!(cli, Cli { command: CargoInvocation::Chef { command : Command::Cook {..}}}))
+}
