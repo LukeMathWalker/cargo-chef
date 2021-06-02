@@ -19,14 +19,9 @@ pub struct TargetArgs {
 
 pub struct CookArgs {
     pub profile: OptimisationProfile,
-    pub default_features: DefaultFeatures,
-    pub features: Option<HashSet<String>>,
     pub target: Option<String>,
     pub target_dir: Option<PathBuf>,
-    pub target_args: TargetArgs,
-    pub manifest_path: Option<PathBuf>,
-    pub package: Option<String>,
-    pub workspace: bool,
+    pub cargo_options: Vec<String>,
 }
 
 impl Recipe {
@@ -66,26 +61,14 @@ pub enum DefaultFeatures {
 fn build_dependencies(args: &CookArgs) {
     let CookArgs {
         profile,
-        default_features,
-        features,
         target,
         target_dir,
-        target_args,
-        manifest_path,
-        package,
-        workspace,
+        cargo_options,
     } = args;
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
     if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");
-    }
-    if default_features == &DefaultFeatures::Disabled {
-        command_with_args.arg("--no-default-features");
-    }
-    if let Some(features) = features {
-        let feature_flag = features.iter().cloned().collect::<Vec<String>>().join(",");
-        command_with_args.arg("--features").arg(feature_flag);
     }
     if let Some(target) = target {
         command_with_args.arg("--target").arg(target);
@@ -93,26 +76,9 @@ fn build_dependencies(args: &CookArgs) {
     if let Some(target_dir) = target_dir {
         command_with_args.arg("--target-dir").arg(target_dir);
     }
-    if target_args.benches {
-        command_with_args.arg("--benches");
-    }
-    if target_args.tests {
-        command_with_args.arg("--tests");
-    }
-    if target_args.examples {
-        command_with_args.arg("--examples");
-    }
-    if target_args.all_targets {
-        command_with_args.arg("--all-targets");
-    }
-    if let Some(manifest_path) = manifest_path {
-        command_with_args.arg("--manifest-path").arg(manifest_path);
-    }
-    if let Some(package) = package {
-        command_with_args.arg("--package").arg(package);
-    }
-    if *workspace {
-        command_with_args.arg("--workspace");
+
+    for arg in cargo_options {
+        command_with_args.arg(arg);
     }
 
     execute_command(command_with_args);

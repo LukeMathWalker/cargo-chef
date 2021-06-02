@@ -67,35 +67,8 @@ pub struct Cook {
     /// Directory for all generated artifacts.
     #[clap(long, env = "CARGO_TARGET_DIR")]
     target_dir: Option<PathBuf>,
-    /// Do not activate the `default` feature.
-    #[clap(long)]
-    no_default_features: bool,
-    /// Space or comma separated list of features to activate.
-    #[clap(long, use_delimiter = true, value_delimiter = ",")]
-    features: Option<Vec<String>>,
-    /// Build all benches
-    #[clap(long)]
-    benches: bool,
-    /// Build all tests
-    #[clap(long)]
-    tests: bool,
-    /// Build all examples
-    #[clap(long)]
-    examples: bool,
-    /// Build all targets.
-    /// This is equivalent to specifying `--tests --benches --examples`.
-    #[clap(long)]
-    all_targets: bool,
-    /// Path to Cargo.toml
-    #[clap(long)]
-    manifest_path: Option<PathBuf>,
-    /// Package to build (see `cargo help pkgid`)
-    #[clap(long, short = 'p')]
-    package: Option<String>,
-    /// Build all members in the workspace.
-    #[clap(long)]
-    workspace: bool,
-    /// Things to pass through to cargo.
+
+    /// Options to pass through to `cargo build`.
     #[clap(multiple = true)]
     cargo_options: Vec<String>,
 }
@@ -114,17 +87,8 @@ fn _main() -> Result<(), anyhow::Error> {
             recipe_path,
             release,
             target,
-            no_default_features,
-            features,
             target_dir,
-            benches,
-            tests,
-            examples,
-            all_targets,
-            manifest_path,
-            package,
-            workspace,
-            cargo_options: _cargo_options,
+            cargo_options,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -146,47 +110,22 @@ fn _main() -> Result<(), anyhow::Error> {
                 }
             }
 
-            let features: Option<HashSet<String>> = features.and_then(|features| {
-                if features.is_empty() {
-                    None
-                } else {
-                    Some(features.into_iter().collect())
-                }
-            });
-
             let profile = if release {
                 OptimisationProfile::Release
             } else {
                 OptimisationProfile::Debug
             };
-
-            let default_features = if no_default_features {
-                DefaultFeatures::Disabled
-            } else {
-                DefaultFeatures::Enabled
-            };
-
             let serialized = fs::read_to_string(recipe_path)
                 .context("Failed to read recipe from the specified path.")?;
             let recipe: Recipe =
                 serde_json::from_str(&serialized).context("Failed to deserialize recipe.")?;
-            let target_args = TargetArgs {
-                benches,
-                tests,
-                examples,
-                all_targets,
-            };
+
             recipe
                 .cook(CookArgs {
                     profile,
-                    default_features,
-                    features,
                     target,
                     target_dir,
-                    target_args,
-                    manifest_path,
-                    package,
-                    workspace,
+                    cargo_options,
                 })
                 .context("Failed to cook recipe.")?;
         }
