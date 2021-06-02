@@ -9,13 +9,6 @@ pub struct Recipe {
     pub skeleton: Skeleton,
 }
 
-pub struct TargetArgs {
-    pub benches: bool,
-    pub tests: bool,
-    pub examples: bool,
-    pub all_targets: bool,
-}
-
 pub struct CookArgs {
     pub profile: OptimisationProfile,
     pub target: Option<String>,
@@ -49,12 +42,6 @@ impl Recipe {
 pub enum OptimisationProfile {
     Release,
     Debug,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum DefaultFeatures {
-    Enabled,
-    Disabled,
 }
 
 fn build_dependencies(args: &CookArgs) {
