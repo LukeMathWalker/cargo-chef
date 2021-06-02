@@ -1,9 +1,8 @@
 use anyhow::Context;
-use chef::{CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
+use chef::{CookArgs, OptimisationProfile, Recipe};
 use clap::crate_version;
 use clap::{AppSettings, Clap};
 use fs_err as fs;
-use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// Cache the dependencies of your Rust project.
