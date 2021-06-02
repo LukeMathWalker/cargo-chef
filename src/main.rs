@@ -151,6 +151,8 @@ fn test_pass_through() {
         "cook",
         "--recipe-path",
         "./recipe.json",
+        "--no-default-features",
+        "--release",
         "testing",
         "--other-options",
         "yes",
@@ -165,7 +167,10 @@ fn test_pass_through() {
     {
         assert_eq!(
             cargo_options,
+            // NB: options that chef should know about are only in `cargo_options`
             vec![
+                "--no-default-features".into(),
+                "--release".into(),
                 "testing".to_string(),
                 "--other-options".into(),
                 "yes".into()
