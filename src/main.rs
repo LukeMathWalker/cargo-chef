@@ -1,7 +1,7 @@
 use anyhow::Context;
 use chef::{CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::crate_version;
-use clap::Clap;
+use clap::{AppSettings, Clap};
 use fs_err as fs;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -51,6 +51,7 @@ pub struct Prepare {
 }
 
 #[derive(Clap)]
+#[clap(setting = AppSettings::AllowLeadingHyphen, setting = AppSettings::TrailingVarArg)]
 pub struct Cook {
     /// The filepath `cook` should be reading the recipe from.
     ///
@@ -94,6 +95,9 @@ pub struct Cook {
     /// Build all members in the workspace.
     #[clap(long)]
     workspace: bool,
+    /// Things to pass through to cargo.
+    #[clap(multiple = true)]
+    cargo_options: Vec<String>,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -120,6 +124,7 @@ fn _main() -> Result<(), anyhow::Error> {
             manifest_path,
             package,
             workspace,
+            cargo_options: _cargo_options,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -202,7 +207,31 @@ fn main() -> Result<(), anyhow::Error> {
 
 #[test]
 fn test_pass_through() {
-    let args = vec!["cargo", "chef", "cook", "--recipe-path", "./recipe.json"];
+    let args = vec![
+        "cargo",
+        "chef",
+        "cook",
+        "--recipe-path",
+        "./recipe.json",
+        "testing",
+        "--other-options",
+        "yes",
+    ];
     let cli = Cli::parse_from(args);
-    assert!(matches!(cli, Cli { command: CargoInvocation::Chef { command : Command::Cook {..}}}))
+    if let Cli {
+        command:
+            CargoInvocation::Chef {
+                command: Command::Cook(Cook { cargo_options, .. }),
+            },
+    } = cli
+    {
+        assert_eq!(
+            cargo_options,
+            vec![
+                "testing".to_string(),
+                "--other-options".into(),
+                "yes".into()
+            ]
+        )
+    }
 }
