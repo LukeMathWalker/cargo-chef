@@ -94,6 +94,9 @@ pub struct Cook {
     /// Build all members in the workspace.
     #[clap(long)]
     workspace: bool,
+    /// Build offline.
+    #[clap(long)]
+    offline: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -120,6 +123,7 @@ fn _main() -> Result<(), anyhow::Error> {
             manifest_path,
             package,
             workspace,
+            offline,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -182,6 +186,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     manifest_path,
                     package,
                     workspace,
+                    offline,
                 })
                 .context("Failed to cook recipe.")?;
         }

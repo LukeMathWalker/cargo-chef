@@ -27,6 +27,7 @@ pub struct CookArgs {
     pub manifest_path: Option<PathBuf>,
     pub package: Option<String>,
     pub workspace: bool,
+    pub offline: bool,
 }
 
 impl Recipe {
@@ -74,6 +75,7 @@ fn build_dependencies(args: &CookArgs) {
         manifest_path,
         package,
         workspace,
+        offline,
     } = args;
     let mut command = Command::new("cargo");
     let command_with_args = command.arg("build");
@@ -113,6 +115,9 @@ fn build_dependencies(args: &CookArgs) {
     }
     if *workspace {
         command_with_args.arg("--workspace");
+    }
+    if *offline {
+        command_with_args.arg("--offline");
     }
 
     execute_command(command_with_args);
