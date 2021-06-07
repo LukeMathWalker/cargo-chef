@@ -14,7 +14,7 @@ fn quick_recipe(content: &str) -> Recipe {
         bin_dir.child(filename).touch().unwrap();
         test_dir.child(filename).touch().unwrap();
     }
-    Recipe::prepare(recipe_directory.path().into()).unwrap()
+    Recipe::prepare(recipe_directory.path().into(), &[]).unwrap()
 }
 
 #[test]
