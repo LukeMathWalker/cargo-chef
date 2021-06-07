@@ -28,9 +28,10 @@ const CONST_VERSION: &str = "0.0.1";
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
     pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
-        let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
-            .build()
-            .context("Failed to scan the files in the current directory.")?;
+        let walker =
+            GlobWalkerBuilder::from_patterns(&base_path, &["/**/Cargo.toml", "!rust-patches/*"])
+                .build()
+                .context("Failed to scan the files in the current directory.")?;
         let mut manifests = vec![];
         for manifest in walker {
             match manifest {
