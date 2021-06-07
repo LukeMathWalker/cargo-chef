@@ -360,3 +360,46 @@ pub fn config_toml() {
         .path()
         .exists());
 }
+
+#[test]
+pub fn test_ignoring_patches() {
+    let content = r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2018"
+
+[patch.crates-io]
+yaml-rust = { package = "yaml-rust", path = 'rust-patches/yaml-rust' }
+"#;
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(content).unwrap();
+    let src_dir = recipe_directory.child("src");
+    src_dir.create_dir_all().unwrap();
+    src_dir.child("main.rs").touch().unwrap();
+
+    // Make rust-patch directory
+    let patch_dir = recipe_directory.child("rust-patches");
+    patch_dir.create_dir_all().unwrap();
+    let yaml_dir = patch_dir.child("yaml-rust");
+    yaml_dir.create_dir_all().unwrap();
+    let yaml_toml = yaml_dir.child("Cargo.toml");
+    let yaml_cargo_content = r#"
+[package]
+name="yaml-rust"
+version = "0.1.0"
+edition = "2018"
+"#;
+    yaml_toml.write_str(yaml_cargo_content).unwrap();
+
+    // Test that if we don't ignore rust-patches, we will find `yaml-rust`'s Cargo.toml too.
+    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+
+    assert_eq!(2, skeleton.manifests.len());
+
+    // Test that if we ignore rust-patches, we will only find `test-dummy`'s Cargo.toml.
+    let skeleton =
+        Skeleton::derive(recipe_directory.path(), &["rust-patches/*".to_string()]).unwrap();
+    assert_eq!(1, skeleton.manifests.len());
+}
