@@ -27,11 +27,16 @@ const CONST_VERSION: &str = "0.0.1";
 
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
-    pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
-        let walker =
-            GlobWalkerBuilder::from_patterns(&base_path, &["/**/Cargo.toml", "!rust-patches/*"])
-                .build()
-                .context("Failed to scan the files in the current directory.")?;
+    pub fn derive<P: AsRef<Path>>(
+        base_path: P,
+        ignore_regexes: &[String],
+    ) -> Result<Self, anyhow::Error> {
+        let regex_patterns = std::iter::once("/**/Cargo.toml".to_string())
+            .chain(ignore_regexes.iter().map(|s| String::from("!") + s))
+            .collect::<Vec<_>>();
+        let walker = GlobWalkerBuilder::from_patterns(&base_path, &regex_patterns)
+            .build()
+            .context("Failed to scan the files in the current directory.")?;
         let mut manifests = vec![];
         for manifest in walker {
             match manifest {

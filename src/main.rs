@@ -48,6 +48,13 @@ pub struct Prepare {
     /// It defaults to "recipe.json".
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
+
+    /// Space or comma separated regular expressions to ignore. This is useful if you have sources in the directory
+    /// that are "like dependencies"---for example, patches.
+    ///
+    /// It defaults an empty list.
+    #[clap(long, use_delimiter = true, value_delimiter = ",")]
+    ignore_regexes: Vec<String>,
 }
 
 #[derive(Clap)]
@@ -190,8 +197,12 @@ fn _main() -> Result<(), anyhow::Error> {
                 })
                 .context("Failed to cook recipe.")?;
         }
-        Command::Prepare(Prepare { recipe_path }) => {
-            let recipe = Recipe::prepare(current_directory).context("Failed to compute recipe")?;
+        Command::Prepare(Prepare {
+            recipe_path,
+            ignore_regexes,
+        }) => {
+            let recipe = Recipe::prepare(current_directory, &ignore_regexes)
+                .context("Failed to compute recipe")?;
             let serialized =
                 serde_json::to_string(&recipe).context("Failed to serialize recipe.")?;
             fs::write(recipe_path, serialized).context("Failed to save recipe to 'recipe.json'")?;
