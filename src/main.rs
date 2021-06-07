@@ -48,9 +48,10 @@ pub struct Prepare {
     /// It defaults to "recipe.json".
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
-
     /// Space or comma separated regular expressions to ignore. This is useful if you have sources in the directory
-    /// that are "like dependencies"---for example, patches.
+    /// that are "like dependencies"---for example, patches. If you want to ignore a top-level directory named `rust-patches`,
+    /// you would ignore it with:
+    /// `cargo chef prepare ... --ignore-regexes "rust-patches/*"`
     ///
     /// It defaults an empty list.
     #[clap(long, use_delimiter = true, value_delimiter = ",")]
