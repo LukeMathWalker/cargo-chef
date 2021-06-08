@@ -30,7 +30,7 @@ path = "src/main.rs"
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path())
@@ -106,7 +106,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
     project_b.child("src").child("lib.rs").touch().unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path())
@@ -166,7 +166,7 @@ harness = false
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path())
@@ -213,7 +213,7 @@ name = "foo"
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path())
@@ -260,7 +260,7 @@ name = "foo"
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path())
@@ -299,14 +299,14 @@ edition = "2018"
     bin_dir.child("f.rs").touch().unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
 
     // What we're testing is that auto-directories come back in the same order.
     // Since it's possible that the directories just happen to come back in the
     // same order randomly, we'll run this a few times to increase the
     // likelihood of triggering the problem if it exists.
     for _ in 0..5 {
-        let skeleton2 = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+        let skeleton2 = Skeleton::derive(recipe_directory.path()).unwrap();
         assert_eq!(
             skeleton, skeleton2,
             "Skeletons of equal directories are not equal. Check [[bin]] ordering in manifest?"
@@ -343,7 +343,7 @@ pub fn config_toml() {
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path())
@@ -393,13 +393,7 @@ edition = "2018"
 "#;
     yaml_toml.write_str(yaml_cargo_content).unwrap();
 
-    // Test that if we don't ignore rust-patches, we will find `yaml-rust`'s Cargo.toml too.
-    let skeleton = Skeleton::derive(recipe_directory.path(), &[]).unwrap();
-
-    assert_eq!(2, skeleton.manifests.len());
-
-    // Test that if we ignore rust-patches, we will only find `test-dummy`'s Cargo.toml.
-    let skeleton =
-        Skeleton::derive(recipe_directory.path(), &["rust-patches/*".to_string()]).unwrap();
+    // Test that we ignore rust-patches---we should only find `test-dummy`'s Cargo.toml.
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     assert_eq!(1, skeleton.manifests.len());
 }

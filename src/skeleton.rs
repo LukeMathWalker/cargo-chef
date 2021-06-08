@@ -27,14 +27,17 @@ const CONST_VERSION: &str = "0.0.1";
 
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
-    pub fn derive<P: AsRef<Path>>(
-        base_path: P,
-        ignore_regexes: &[String],
-    ) -> Result<Self, anyhow::Error> {
-        let regex_patterns = std::iter::once("/**/Cargo.toml".to_string())
-            .chain(ignore_regexes.iter().map(|s| String::from("!") + s))
-            .collect::<Vec<_>>();
-        let walker = GlobWalkerBuilder::from_patterns(&base_path, &regex_patterns)
+    pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
+        let cargo_regex = "/**/Cargo.toml";
+        let builder = if let Some(patches) = get_top_level_patches(&base_path) {
+            let regex_patterns = std::iter::once(cargo_regex.to_string())
+                .chain(patches.iter().map(|s| String::from("!") + s))
+                .collect::<Vec<_>>();
+            GlobWalkerBuilder::from_patterns(&base_path, &regex_patterns)
+        } else {
+            GlobWalkerBuilder::new(&base_path, cargo_regex)
+        };
+        let walker = builder
             .build()
             .context("Failed to scan the files in the current directory.")?;
         let mut manifests = vec![];
@@ -324,6 +327,26 @@ impl Skeleton {
 enum ErrorStrategy {
     Ignore,
     Crash(WalkError),
+}
+
+/// Try to read the top-level `Cargo.toml`. Returns all of the paths of its `patch`es.
+fn get_top_level_patches<P: AsRef<Path>>(base_path: P) -> Option<Vec<String>> {
+    let base_cargo_toml = base_path.as_ref().join("Cargo.toml");
+    let contents = fs::read_to_string(&base_cargo_toml).ok()?;
+
+    let parsed = cargo_manifest::Manifest::from_str(&contents).ok()?;
+    parsed.patch.map(|patches| {
+        {
+            patches
+                .values()
+                .flat_map(|patch| {
+                    patch.values().flat_map(|dependency| {
+                        dependency.detail().and_then(|detail| detail.path.clone())
+                    })
+                })
+                .collect()
+        }
+    })
 }
 
 /// Ignore directory/files for which we don't have enough permissions to perform our scan.

@@ -31,8 +31,8 @@ pub struct CookArgs {
 }
 
 impl Recipe {
-    pub fn prepare(base_path: PathBuf, ignore_regexes: &[String]) -> Result<Self, anyhow::Error> {
-        let skeleton = Skeleton::derive(&base_path, ignore_regexes)?;
+    pub fn prepare(base_path: PathBuf) -> Result<Self, anyhow::Error> {
+        let skeleton = Skeleton::derive(&base_path)?;
         Ok(Recipe { skeleton })
     }
 
