@@ -31,7 +31,7 @@ impl Skeleton {
         let cargo_regex = "/**/Cargo.toml";
         let builder = if let Some(patches) = get_top_level_patches(&base_path) {
             let regex_patterns = std::iter::once(cargo_regex.to_string())
-                .chain(patches.iter().map(|s| String::from("!") + s))
+                .chain(patches.into_iter().map(|s| String::from("!") + &s))
                 .collect::<Vec<_>>();
             GlobWalkerBuilder::from_patterns(&base_path, &regex_patterns)
         } else {
@@ -330,21 +330,18 @@ enum ErrorStrategy {
 }
 
 /// Try to read the top-level `Cargo.toml`. Returns all of the paths of its `patch`es.
-fn get_top_level_patches<P: AsRef<Path>>(base_path: P) -> Option<Vec<String>> {
+fn get_top_level_patches<P: AsRef<Path>>(base_path: P) -> Option<impl Iterator<Item = String>> {
     let base_cargo_toml = base_path.as_ref().join("Cargo.toml");
     let contents = fs::read_to_string(&base_cargo_toml).ok()?;
 
     let parsed = cargo_manifest::Manifest::from_str(&contents).ok()?;
     parsed.patch.map(|patches| {
         {
-            patches
-                .values()
-                .flat_map(|patch| {
-                    patch.values().flat_map(|dependency| {
-                        dependency.detail().and_then(|detail| detail.path.clone())
-                    })
+            patches.into_iter().flat_map(|(_entry_title, values)| {
+                values.into_iter().flat_map(|(_key, dependency)| {
+                    dependency.detail().and_then(|detail| detail.path.clone())
                 })
-                .collect()
+            })
         }
     })
 }
