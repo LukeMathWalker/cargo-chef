@@ -370,7 +370,9 @@ version = "0.1.0"
 edition = "2018"
 
 [patch.crates-io]
-yaml-rust = { package = "yaml-rust", path = 'rust-patches/yaml-rust' }
+rocket = { package = "rocket", path = 'rust-patches/Rocket/core/lib' }
+rocket_codegen = { package = "rocket_codegen", path = 'rust-patches/Rocket/core/codegen' }
+rocket_contrib = { package = "rocket_contrib", path = 'rust-patches/Rocket/contrib/lib' }
 "#;
     let recipe_directory = TempDir::new().unwrap();
     let manifest = recipe_directory.child("Cargo.toml");
@@ -382,16 +384,74 @@ yaml-rust = { package = "yaml-rust", path = 'rust-patches/yaml-rust' }
     // Make rust-patch directory
     let patch_dir = recipe_directory.child("rust-patches");
     patch_dir.create_dir_all().unwrap();
-    let yaml_dir = patch_dir.child("yaml-rust");
-    yaml_dir.create_dir_all().unwrap();
-    let yaml_toml = yaml_dir.child("Cargo.toml");
-    let yaml_cargo_content = r#"
+
+    // Make rust-patch/Rocket directory
+    let rocket_dir = patch_dir.child("Rocket");
+    rocket_dir.create_dir_all().unwrap();
+
+    // Rocket/core
+    let core_dir = rocket_dir.child("core");
+    core_dir.create_dir_all().unwrap();
+    // Rocket/core/codegen
+    let core_codegen_dir = core_dir.child("codegen");
+    core_codegen_dir.create_dir_all().unwrap();
+    let toml = core_codegen_dir.child("Cargo.toml");
+    let toml_contents = r#"
 [package]
-name="yaml-rust"
+name="rocket_codegen"
 version = "0.1.0"
 edition = "2018"
 "#;
-    yaml_toml.write_str(yaml_cargo_content).unwrap();
+    toml.write_str(toml_contents).unwrap();
+    // Rocket/core/http
+    let http_dir = core_dir.child("http");
+    http_dir.create_dir_all().unwrap();
+    let toml = http_dir.child("Cargo.toml");
+    let toml_contents = r#"
+[package]
+name="rocket_http"
+version = "0.1.0"
+edition = "2018"
+"#;
+    toml.write_str(toml_contents).unwrap();
+    // Rocket/core/lib
+    let core_lib_dir = core_dir.child("lib");
+    core_lib_dir.create_dir_all().unwrap();
+    let toml = core_lib_dir.child("Cargo.toml");
+    let toml_contents = r#"
+[package]
+name="rocket"
+version = "0.1.0"
+edition = "2018"
+"#;
+    toml.write_str(toml_contents).unwrap();
+
+    // Rocket/contrib
+    let contrib_dir = rocket_dir.child("contrib");
+    contrib_dir.create_dir_all().unwrap();
+    // Rocket/contrib/codegen
+    let contrib_codegen_dir = contrib_dir.child("codegen");
+    contrib_codegen_dir.create_dir_all().unwrap();
+    let toml = contrib_codegen_dir.child("Cargo.toml");
+    let toml_contents = r#"
+[package]
+name="rocket_contrib_codegen"
+version = "0.1.0"
+edition = "2018"
+"#;
+    toml.write_str(toml_contents).unwrap();
+    // Rocket/contrib/lib
+    let contrib_lib_dir = contrib_dir.child("lib");
+    contrib_lib_dir.create_dir_all().unwrap();
+
+    let toml = contrib_lib_dir.child("Cargo.toml");
+    let toml_contents = r#"
+[package]
+name="rocket_contrib"
+version = "0.1.0"
+edition = "2018"
+"#;
+    toml.write_str(toml_contents).unwrap();
 
     // Test that we ignore rust-patches---we should only find `test-dummy`'s Cargo.toml.
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
