@@ -4,39 +4,75 @@ on:
     tags:
       # Do not build on alpha tags!
       - v[0-9]+.[0-9]+.[0-9]+
+      # NOTE: The job relies on above format being used
   schedule:
     - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
 jobs:
-  build:
-    name: Build and push
+  rust_image_tag_matrix:
+    name: Generate Rust Docker image tag matrix
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      -
+        id: set-matrix
+        run: |
+          echo -n '::set-output name=matrix::[' \
+          && curl --silent https://raw.githubusercontent.com/docker-library/official-images/master/library/rust \
+            | grep -E Tags: \
+            | cut -d ' ' -f 2- \
+            | sed 's/, /\n/g' \
+            | sed 's/\(.*\)/"\1",/g' \
+            | tr '\n' ' ' \
+            | sed '$ s/..$//' \
+          && echo ']'
+  build_and_push:
+    name: Build and push
+    needs: [rust_image_tag_matrix]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_image_tag: ${{fromJSON(needs.rust_image_tag_matrix.outputs.matrix)}}
     env:
       RUST_IMAGE_TAG: latest
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v2
-      - run: |
-          docker login --username $DOCKERHUB_USERNAME --password $DOCKERHUB_TOKEN
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        # Get package version from commit tag, with `v` prefix removed
+        name: Get package version
+        id: package_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/v}
+      -
+        name: Build and push
+        run: |
+          RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
+          CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.VERSION }}
+          CHEF_IMAGE=$DOCKERHUB_USERNAME/cargo-chef:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
+          CHEF_IMAGE_LATEST=$DOCKERHUB_USERNAME/cargo-chef:latest-rust-$RUST_IMAGE_TAG
 
-          RUST_IMAGE=rust:$RUST_IMAGE_TAG
-          RUST_VERSION=$(docker run --rm $RUST_IMAGE rustc --version)
-          echo "Rust version in $RUST_IMAGE is $RUST_VERSION."
-
-          CHEF_IMAGE=$DOCKERHUB_USERNAME/cargo-chef:$RUST_IMAGE_TAG
-          CHEF_RUST_VERSION=$(docker run --rm $CHEF_IMAGE rustc --version || echo "none")
-          echo "Rust version in $CHEF_IMAGE is $CHEF_RUST_VERSION."
-          CHEF_VERSION=$(docker run --rm $CHEF_IMAGE cargo install --list | grep "^cargo-chef v" | cut -d v -f 2 | cut -d : -f 1 || echo "none")
-          echo "cargo chef version in $CHEF_IMAGE is $CHEF_VERSION."
-
-          # Somewhat tricky way to determine latest version without installing anything
-          LATEST_CHEF=$(cargo search --limit 1 cargo-chef | head -n 1 | cut -d '"' -f 2)
-          echo "Latest cargo chef version on crates.io is $LATEST_CHEF."
-
-          if [ "$RUST_VERSION" == "$CHEF_RUST_VERSION" -a "$LATEST_CHEF" == "$CHEF_VERSION" ]; then
-            echo "All versions up-to-date, existing early."
-            exit 0
-          fi
-
-          docker build docker/ -t $CHEF_IMAGE --build-arg=BASE_IMAGE=$RUST_IMAGE
+          docker build -t $CHEF_IMAGE --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG ./docker
+          docker tag $CHEF_IMAGE $CHEF_IMAGE_LATEST
           docker push $CHEF_IMAGE
+          docker push $CHEF_IMAGE_LATEST
+      -
+        # Latest Rust version, latest cargo-chef version
+        name: Push latest tag
+        if: ${{ matrix.rust_image_tag == 'latest' }}
+        run: |
+          REPO=$DOCKERHUB_USERNAME/cargo-chef
+          docker tag $REPO:latest-rust-latest $REPO:latest
+          docker push $REPO:latest
