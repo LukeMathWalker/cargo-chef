@@ -1,12 +1,16 @@
 name: Build Docker images
 on:
   push:
-    tags:
-      # Do not build on alpha tags!
-      - v[0-9]+.[0-9]+.[0-9]+
-      # NOTE: The job relies on above format being used
+    branches: [main, master]
   schedule:
     - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
+
+env:
+  RUST_IMAGE_TAG: latest
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  DOCKER_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/cargo-chef
+
 jobs:
   rust_image_tag_matrix:
     name: Generate Rust Docker image tag matrix
@@ -34,10 +38,6 @@ jobs:
       fail-fast: false
       matrix:
         rust_image_tag: ${{fromJSON(needs.rust_image_tag_matrix.outputs.matrix)}}
-    env:
-      RUST_IMAGE_TAG: latest
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       -
         name: Checkout
@@ -52,27 +52,45 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        # Get package version from commit tag, with `v` prefix removed
+        # Get package version from Cargo.toml
         name: Get package version
         id: package_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/v}
+        run: |-
+          VER=$(grep -E '^version = ' Cargo.toml | cut -d' ' -f3 | cut -d'"' -f2)
+          echo ::set-output name=result::$VER
+      -
+        # Check if Cargo version matches ^\d+\.\d+\.\d+$
+        name: Determine if release version
+        id: is_release_version
+        run: |
+          if [[ ${{ steps.package_version.outputs.result }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo ::set-output name=result::true
+          fi
       -
         name: Build and push
         run: |
           RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
-          CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.VERSION }}
-          CHEF_IMAGE=$DOCKERHUB_USERNAME/cargo-chef:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
-          CHEF_IMAGE_LATEST=$DOCKERHUB_USERNAME/cargo-chef:latest-rust-$RUST_IMAGE_TAG
+          CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
+          CHEF_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
 
           docker build -t $CHEF_IMAGE --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG ./docker
-          docker tag $CHEF_IMAGE $CHEF_IMAGE_LATEST
           docker push $CHEF_IMAGE
+      -
+        # Latest cargo-chef version for each Rust version
+        name: Push `latest-rust-X` tag
+        if: ${{ steps.is_release_version.outputs.result == 'true' }}
+        run: |
+          RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
+          CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
+          CHEF_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
+          CHEF_IMAGE_LATEST=$DOCKER_REPO:latest-rust-$RUST_IMAGE_TAG
+
+          docker tag $CHEF_IMAGE $CHEF_IMAGE_LATEST
           docker push $CHEF_IMAGE_LATEST
       -
         # Latest Rust version, latest cargo-chef version
-        name: Push latest tag
-        if: ${{ matrix.rust_image_tag == 'latest' }}
+        name: Push `latest` tag
+        if: ${{ matrix.rust_image_tag == 'latest' && steps.is_release_version.outputs.result == 'true' }}
         run: |
-          REPO=$DOCKERHUB_USERNAME/cargo-chef
-          docker tag $REPO:latest-rust-latest $REPO:latest
-          docker push $REPO:latest
+          docker tag $DOCKER_REPO:latest-rust-latest $DOCKER_REPO:latest
+          docker push $DOCKER_REPO:latest
