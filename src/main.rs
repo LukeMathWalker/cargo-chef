@@ -60,7 +60,7 @@ pub struct Cook {
     /// Build in release mode.
     #[clap(long)]
     release: bool,
-    /// Check instead of build.
+    /// Run `cargo check` instead of `cargo build`. Primarily useful for speeding up your CI pipeline.
     #[clap(long)]
     check: bool,
     /// Build for the target triple.
