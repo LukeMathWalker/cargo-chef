@@ -19,6 +19,7 @@ pub struct TargetArgs {
 
 pub struct CookArgs {
     pub profile: OptimisationProfile,
+    pub check: bool,
     pub default_features: DefaultFeatures,
     pub features: Option<HashSet<String>>,
     pub target: Option<String>,
@@ -67,6 +68,7 @@ pub enum DefaultFeatures {
 fn build_dependencies(args: &CookArgs) {
     let CookArgs {
         profile,
+        check,
         default_features,
         features,
         target,
@@ -78,7 +80,11 @@ fn build_dependencies(args: &CookArgs) {
         offline,
     } = args;
     let mut command = Command::new("cargo");
-    let command_with_args = command.arg("build");
+    let command_with_args = if *check {
+        command.arg("check")
+    } else {
+        command.arg("build")
+    };
     if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");
     }

@@ -60,6 +60,9 @@ pub struct Cook {
     /// Build in release mode.
     #[clap(long)]
     release: bool,
+    /// Run `cargo check` instead of `cargo build`. Primarily useful for speeding up your CI pipeline.
+    #[clap(long)]
+    check: bool,
     /// Build for the target triple.
     #[clap(long)]
     target: Option<String>,
@@ -112,6 +115,7 @@ fn _main() -> Result<(), anyhow::Error> {
         Command::Cook(Cook {
             recipe_path,
             release,
+            check,
             target,
             no_default_features,
             features,
@@ -178,6 +182,7 @@ fn _main() -> Result<(), anyhow::Error> {
             recipe
                 .cook(CookArgs {
                     profile,
+                    check,
                     default_features,
                     features,
                     target,
