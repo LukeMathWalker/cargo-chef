@@ -3,6 +3,7 @@ use anyhow::Context;
 use fs_err as fs;
 use globwalk::{GlobWalkerBuilder, WalkError};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::{
     borrow::BorrowMut,
@@ -28,7 +29,16 @@ const CONST_VERSION: &str = "0.0.1";
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
     pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
-        let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
+        let cargo_regex = "/**/Cargo.toml";
+        let builder = if let Some(patches) = get_top_level_patches(&base_path) {
+            let regex_patterns = std::iter::once(cargo_regex.to_string())
+                .chain(patches.into_iter().map(|s| String::from("!") + &s))
+                .collect::<Vec<_>>();
+            GlobWalkerBuilder::from_patterns(&base_path, &regex_patterns)
+        } else {
+            GlobWalkerBuilder::new(&base_path, cargo_regex)
+        };
+        let walker = builder
             .build()
             .context("Failed to scan the files in the current directory.")?;
         let mut manifests = vec![];
@@ -318,6 +328,34 @@ impl Skeleton {
 enum ErrorStrategy {
     Ignore,
     Crash(WalkError),
+}
+
+/// Try to read the top-level `Cargo.toml`. Tries to return all of the folders containing patches.
+/// This guesses **incorrectly** if patches and source code are interspersed.
+/// In that case, it will try to cache your source code, in which case you wouldn't need `cargo chef`.
+fn get_top_level_patches<P: AsRef<Path>>(base_path: P) -> Option<HashSet<String>> {
+    let base_cargo_toml = base_path.as_ref().join("Cargo.toml");
+    let contents = fs::read_to_string(&base_cargo_toml).ok()?;
+
+    let parsed = cargo_manifest::Manifest::from_str(&contents).ok()?;
+    parsed.patch.map(|patches| {
+        {
+            patches
+                .into_iter()
+                .flat_map(|(_entry_title, values)| {
+                    values.into_iter().flat_map(|(_key, dependency)| {
+                        dependency.detail().and_then(|detail| {
+                            detail.path.as_ref().and_then(|path| {
+                                Path::new(&path)
+                                    .parent()
+                                    .and_then(|path| path.to_str().map(|s| s.to_string()))
+                            })
+                        })
+                    })
+                })
+                .collect()
+        }
+    })
 }
 
 /// Ignore directory/files for which we don't have enough permissions to perform our scan.
