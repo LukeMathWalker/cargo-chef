@@ -33,7 +33,7 @@ path = "src/main.rs"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -109,7 +109,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -169,7 +169,7 @@ harness = false
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -216,7 +216,7 @@ name = "foo"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -263,7 +263,7 @@ name = "foo"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -346,7 +346,7 @@ pub fn config_toml() {
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert

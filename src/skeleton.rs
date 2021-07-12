@@ -131,7 +131,11 @@ impl Skeleton {
     ///
     /// This function should be called on an empty canvas - i.e. an empty directory apart from
     /// the recipe file used to restore the skeleton.
-    pub fn build_minimum_project(&self, base_path: &Path) -> Result<(), anyhow::Error> {
+    pub fn build_minimum_project(
+        &self,
+        base_path: &Path,
+        no_std: bool,
+    ) -> Result<(), anyhow::Error> {
         // Save lockfile to disk, if available
         if let Some(lock_file) = &self.lock_file {
             let lock_file_path = base_path.join("Cargo.lock");
@@ -145,6 +149,15 @@ impl Skeleton {
             fs::create_dir_all(parent_dir)?;
             fs::write(config_file_path, config_file.as_str())?;
         }
+
+        let no_std_entrypoint = "#![no_std]
+#![no_main]
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+";
 
         // Save all manifests to disks
         for manifest in &self.manifests {
@@ -168,7 +181,11 @@ impl Skeleton {
                 if let Some(parent_directory) = binary_path.parent() {
                     fs::create_dir_all(parent_directory)?;
                 }
-                fs::write(binary_path, "fn main() {}")?;
+                if no_std {
+                    fs::write(binary_path, no_std_entrypoint)?;
+                } else {
+                    fs::write(binary_path, "fn main() {}")?;
+                }
             }
 
             // Create dummy entrypoint files for for all libraries
@@ -179,7 +196,11 @@ impl Skeleton {
                 if let Some(parent_directory) = lib_path.parent() {
                     fs::create_dir_all(parent_directory)?;
                 }
-                fs::write(lib_path, "")?;
+                if no_std && !lib.proc_macro {
+                    fs::write(lib_path, "#![no_std]")?;
+                } else {
+                    fs::write(lib_path, "")?;
+                }
             }
 
             // Create dummy entrypoint files for for all benchmarks
@@ -209,7 +230,30 @@ impl Skeleton {
                 if let Some(parent_directory) = test_path.parent() {
                     fs::create_dir_all(parent_directory)?;
                 }
-                if test.harness {
+                if no_std {
+                    if test.harness {
+                        fs::write(
+                            test_path,
+                            r#"#![no_std]
+#![no_main]
+#![feature(custom_test_frameworks)]
+#![test_runner(test_runner)]
+
+#[no_mangle]
+pub extern "C" fn _init() {}
+
+fn test_runner(_: &[&dyn Fn()]) {}
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}                
+"#,
+                        )?;
+                    } else {
+                        fs::write(test_path, no_std_entrypoint)?;
+                    }
+                } else if test.harness {
                     fs::write(test_path, "")?;
                 } else {
                     fs::write(test_path, "fn main() {}")?;
@@ -228,7 +272,11 @@ impl Skeleton {
                 if let Some(parent_directory) = example_path.parent() {
                     fs::create_dir_all(parent_directory)?;
                 }
-                fs::write(example_path, "fn main() {}")?;
+                if no_std {
+                    fs::write(example_path, no_std_entrypoint)?;
+                } else {
+                    fs::write(example_path, "fn main() {}")?;
+                }
             }
 
             // Create dummy build script file if specified
