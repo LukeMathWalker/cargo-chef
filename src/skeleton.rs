@@ -3,7 +3,6 @@ use anyhow::Context;
 use fs_err as fs;
 use globwalk::{GlobWalkerBuilder, WalkError};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::str::FromStr;
 use std::{
     borrow::BorrowMut,
@@ -330,30 +329,19 @@ enum ErrorStrategy {
     Crash(WalkError),
 }
 
-/// Try to read the top-level `Cargo.toml`. Tries to return all of the folders containing patches.
-/// This guesses **incorrectly** if patches and source code are interspersed.
-/// In that case, it will try to cache your source code, in which case you wouldn't need `cargo chef`.
-fn get_top_level_patches<P: AsRef<Path>>(base_path: P) -> Option<HashSet<String>> {
+/// Try to read the top-level `Cargo.toml`. Returns all of the paths of its `patch`es.
+fn get_top_level_patches<P: AsRef<Path>>(base_path: P) -> Option<impl Iterator<Item = String>> {
     let base_cargo_toml = base_path.as_ref().join("Cargo.toml");
     let contents = fs::read_to_string(&base_cargo_toml).ok()?;
 
     let parsed = cargo_manifest::Manifest::from_str(&contents).ok()?;
     parsed.patch.map(|patches| {
         {
-            patches
-                .into_iter()
-                .flat_map(|(_entry_title, values)| {
-                    values.into_iter().flat_map(|(_key, dependency)| {
-                        dependency.detail().and_then(|detail| {
-                            detail.path.as_ref().and_then(|path| {
-                                Path::new(&path)
-                                    .parent()
-                                    .and_then(|path| path.to_str().map(|s| s.to_string()))
-                            })
-                        })
-                    })
+            patches.into_iter().flat_map(|(_entry_title, values)| {
+                values.into_iter().flat_map(|(_key, dependency)| {
+                    dependency.detail().and_then(|detail| detail.path.clone())
                 })
-                .collect()
+            })
         }
     })
 }
