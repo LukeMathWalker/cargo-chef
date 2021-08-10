@@ -45,10 +45,10 @@ impl Skeleton {
                     let mut intermediate = toml::Value::try_from(parsed)?;
 
                     // ignore package.version for recipe
-                    *intermediate
+                    intermediate
                         .get_mut("package")
                         .and_then(|v| v.get_mut("version"))
-                        .borrow_mut() = Some(&mut toml::Value::String(CONST_VERSION.to_string()));
+                        .map(|version| *version = toml::Value::String(CONST_VERSION.to_string()));
 
                     // Specifically, toml gives no guarantees to the ordering of the auto binaries
                     // in its results. We will manually sort these to ensure that the output
