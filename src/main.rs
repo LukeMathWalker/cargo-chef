@@ -73,7 +73,7 @@ pub struct Cook {
     #[clap(long)]
     no_default_features: bool,
     /// Space or comma separated list of features to activate.
-    #[clap(long, use_delimiter = true, value_delimiter = ",")]
+    #[clap(long, use_delimiter = true, value_delimiter = ',')]
     features: Option<Vec<String>>,
     /// Build all benches
     #[clap(long)]
