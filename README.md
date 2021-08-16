@@ -32,7 +32,7 @@
 You can install `cargo-chef` from [crates.io](https://crates.io) with
 
 ```bash
-cargo install cargo-chef
+cargo install cargo-chef --locked
 ```
 
 ## How to use
