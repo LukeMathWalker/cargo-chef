@@ -29,6 +29,7 @@ impl Skeleton {
             .build()
             .context("Failed to scan the files in the current directory.")?;
         let mut manifests = vec![];
+        let mut local_package_names = vec![];
         for manifest in walker {
             match manifest {
                 Ok(manifest) => {
@@ -44,7 +45,12 @@ impl Skeleton {
                     // ignore package.version for recipe
                     if let Some(version) = intermediate
                         .get_mut("package")
-                        .and_then(|v| v.get_mut("version"))
+                        .and_then(|package| {
+                            if let Some(name) = package.get("name") {
+                                local_package_names.push(name.to_owned());
+                            }
+                            package.get_mut("version")
+                        })
                     {
                         *version = toml::Value::String(CONST_VERSION.to_string());
                     }
@@ -109,7 +115,33 @@ impl Skeleton {
         };
 
         let lock_file = match fs::read_to_string(base_path.as_ref().join("Cargo.lock")) {
-            Ok(lock) => Some(lock),
+            Ok(lock) => {
+                let mut lock: toml::Value = toml::from_str(&lock)?;
+                // get the packages array
+                if let Some(packages) = lock
+                    .get_mut("package")
+                    .and_then(|packages| packages.as_array_mut())
+                {
+                    // loop over the packages
+                    packages
+                        .iter_mut()
+                        // finding only the packages in our workspace
+                        .filter(|package| {
+                            package
+                                .get("name")
+                                .map(|name| local_package_names.contains(name))
+                                .unwrap_or_default()
+                        })
+                        // finally masking the version
+                        .for_each(|package| {
+                            if let Some(version) = package.get_mut("version") {
+                                *version = toml::Value::String(CONST_VERSION.to_string())
+                            }
+                        });
+                }
+
+                Some(toml::to_string(&lock)?)
+            }
             Err(e) => {
                 if std::io::ErrorKind::NotFound != e.kind() {
                     return Err(anyhow::Error::from(e).context("Failed to read Cargo.lock file."));
