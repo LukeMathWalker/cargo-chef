@@ -43,15 +43,12 @@ impl Skeleton {
                     let mut intermediate = toml::Value::try_from(parsed)?;
 
                     // ignore package.version for recipe
-                    if let Some(version) = intermediate
-                        .get_mut("package")
-                        .and_then(|package| {
-                            if let Some(name) = package.get("name") {
-                                local_package_names.push(name.to_owned());
-                            }
-                            package.get_mut("version")
-                        })
-                    {
+                    if let Some(version) = intermediate.get_mut("package").and_then(|package| {
+                        if let Some(name) = package.get("name") {
+                            local_package_names.push(name.to_owned());
+                        }
+                        package.get_mut("version")
+                    }) {
                         *version = toml::Value::String(CONST_VERSION.to_string());
                     }
 
