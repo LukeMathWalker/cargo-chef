@@ -3,11 +3,8 @@ use anyhow::Context;
 use fs_err as fs;
 use globwalk::{GlobWalkerBuilder, WalkError};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{
-    borrow::BorrowMut,
-    path::{Path, PathBuf},
-};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Skeleton {
@@ -45,10 +42,12 @@ impl Skeleton {
                     let mut intermediate = toml::Value::try_from(parsed)?;
 
                     // ignore package.version for recipe
-                    *intermediate
+                    if let Some(version) = intermediate
                         .get_mut("package")
                         .and_then(|v| v.get_mut("version"))
-                        .borrow_mut() = Some(&mut toml::Value::String(CONST_VERSION.to_string()));
+                    {
+                        *version = toml::Value::String(CONST_VERSION.to_string());
+                    }
 
                     // Specifically, toml gives no guarantees to the ordering of the auto binaries
                     // in its results. We will manually sort these to ensure that the output
