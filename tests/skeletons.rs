@@ -361,7 +361,6 @@ pub fn config_toml() {
         .exists());
 }
 
-
 #[test]
 pub fn version() {
     // Arrange
