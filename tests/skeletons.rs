@@ -1,7 +1,10 @@
-use assert_fs::prelude::{FileTouch, FileWriteStr, PathChild, PathCreateDir};
+use std::path::Path;
+
+use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use chef::Skeleton;
 use expect_test::Expect;
+use predicates::prelude::*;
 
 #[test]
 pub fn no_workspace() {
@@ -39,10 +42,15 @@ path = "src/main.rs"
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory.child("src").child("main.rs").path().exists());
-    assert!(cook_directory.child("Cargo.lock").path().exists());
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
+        .child("src")
+        .child("main.rs")
+        .assert("fn main() {}");
+    cook_directory
+        .child("Cargo.lock")
+        .assert(predicate::path::exists());
 }
 
 #[test]
@@ -115,20 +123,18 @@ uuid = { version = "=0.8.0", features = ["v4"] }
 
     // Assert
     assert_eq!(3, skeleton.manifests.len());
-    assert!(cook_directory
+    cook_directory
         .child("src")
         .child("project_a")
         .child("src")
         .child("main.rs")
-        .path()
-        .exists());
-    assert!(cook_directory
+        .assert("fn main() {}");
+    cook_directory
         .child("src")
         .child("project_b")
         .child("src")
         .child("lib.rs")
-        .path()
-        .exists())
+        .assert("");
 }
 
 #[test]
@@ -175,13 +181,12 @@ harness = false
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
         .child("benches")
         .child("basics.rs")
-        .path()
-        .exists())
+        .assert("fn main() {}");
 }
 
 #[test]
@@ -222,13 +227,9 @@ name = "foo"
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory
-        .child("tests")
-        .child("foo.rs")
-        .path()
-        .exists())
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory.child("tests").child("foo.rs").assert("");
 }
 
 #[test]
@@ -269,13 +270,12 @@ name = "foo"
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
         .child("examples")
         .child("foo.rs")
-        .path()
-        .exists())
+        .assert("fn main() {}");
 }
 
 #[test]
@@ -352,14 +352,16 @@ pub fn config_toml() {
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory.child("src").child("main.rs").path().exists());
-    assert!(cook_directory
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
+        .child("src")
+        .child("main.rs")
+        .assert("fn main() {}");
+    cook_directory
         .child(".cargo")
         .child("config.toml")
-        .path()
-        .exists());
+        .assert(predicate::path::exists());
 }
 
 #[test]
