@@ -1,11 +1,11 @@
 use crate::OptimisationProfile;
 use anyhow::Context;
+use cargo_manifest::Value;
 use fs_err as fs;
-use globwalk::{GlobWalkerBuilder, WalkError, GlobWalker};
+use globwalk::{GlobWalker, GlobWalkerBuilder, WalkError};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use cargo_manifest::Value;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Skeleton {
@@ -45,7 +45,7 @@ impl Skeleton {
             let contents = toml::to_string(&manifest.contents)?;
             serialised_manifests.push(Manifest {
                 relative_path: manifest.relative_path,
-                contents
+                contents,
             });
         }
 
@@ -319,7 +319,10 @@ fn handle_walk_error(e: WalkError) -> ErrorStrategy {
     ErrorStrategy::Crash(e)
 }
 
-fn read_manifests<P: AsRef<Path>>(base_path: &P, walker: GlobWalker) -> Result<Vec<StructuredManifest>, anyhow::Error> {
+fn read_manifests<P: AsRef<Path>>(
+    base_path: &P,
+    walker: GlobWalker,
+) -> Result<Vec<StructuredManifest>, anyhow::Error> {
     let mut manifests = vec![];
     for manifest in walker {
         match manifest {
@@ -355,12 +358,12 @@ fn read_manifests<P: AsRef<Path>>(base_path: &P, walker: GlobWalker) -> Result<V
                     });
                 }
 
-                let relative_path = pathdiff::diff_paths(&absolute_path, &base_path)
-                    .ok_or_else(|| {
+                let relative_path =
+                    pathdiff::diff_paths(&absolute_path, &base_path).ok_or_else(|| {
                         anyhow::anyhow!(
-                                "Failed to compute relative path of manifest {:?}",
-                                &absolute_path
-                            )
+                            "Failed to compute relative path of manifest {:?}",
+                            &absolute_path
+                        )
                     })?;
                 manifests.push(StructuredManifest {
                     relative_path,
@@ -410,7 +413,11 @@ fn mask_local_versions(manifests: &mut [StructuredManifest], local_package_names
     }
 }
 
-fn mask_local_dependency_versions(local_package_names: &[Value], manifest: &mut StructuredManifest, dependency_key: &str) {
+fn mask_local_dependency_versions(
+    local_package_names: &[Value],
+    manifest: &mut StructuredManifest,
+    dependency_key: &str,
+) {
     if let Some(dependencies) = manifest.contents.get_mut(dependency_key) {
         for local_package in local_package_names.iter() {
             if let toml::Value::String(local_package) = local_package {

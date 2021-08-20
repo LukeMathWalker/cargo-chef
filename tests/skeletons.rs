@@ -605,12 +605,17 @@ version = "0.8.0"
     ));
 
     let first = skeleton.manifests[0].clone();
-    check(&first.contents, expect_test::expect![[r#"
+    check(
+        &first.contents,
+        expect_test::expect![[r#"
         [workspace]
         members = ["src/project_a", "src/project_b"]
-    "#]]);
+    "#]],
+    );
     let second = skeleton.manifests[1].clone();
-    check(&second.contents, expect_test::expect![[r#"
+    check(
+        &second.contents,
+        expect_test::expect![[r#"
         bin = []
         bench = []
         test = []
@@ -649,9 +654,12 @@ version = "0.8.0"
         harness = true
         required-features = []
         crate-type = ["cdylib"]
-    "#]]);
+    "#]],
+    );
     let third = skeleton.manifests[2].clone();
-    check(&third.contents, expect_test::expect![[r#"
+    check(
+        &third.contents,
+        expect_test::expect![[r#"
         bench = []
         test = []
         example = []
@@ -684,7 +692,8 @@ version = "0.8.0"
         version = "=0.8.0"
         features = ["v4"]
         optional = false
-    "#]]);
+    "#]],
+    );
 }
 
 fn check(actual: &str, expect: Expect) {
