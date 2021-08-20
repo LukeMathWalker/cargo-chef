@@ -1,6 +1,7 @@
 use assert_fs::prelude::{FileTouch, FileWriteStr, PathChild, PathCreateDir};
 use assert_fs::TempDir;
 use chef::Skeleton;
+use expect_test::Expect;
 
 #[test]
 pub fn no_workspace() {
@@ -481,7 +482,7 @@ members = [
 
     let first_content = r#"
 [package]
-name = "project_a"
+name = "project-a"
 version = "1.2.3"
 edition = "2018"
 
@@ -504,6 +505,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 uuid = { version = "=0.8.0", features = ["v4"] }
+project_a = { version = "0.0.1", path = "../project_a" }
     "#;
 
     let lockfile = r#"
@@ -512,7 +514,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
 version = 3
 
 [[package]]
-name = "project_a"
+name = "project-a"
 version = "1.2.3"
 dependencies = [
     "uuid",
@@ -523,6 +525,7 @@ name = "project_b"
 version = "4.5.6"
 dependencies = [
     "uuid",
+    "project-a"
 ]
 
 [[package]]
@@ -568,14 +571,14 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
     assert!(!lock_file.contains(
         r#"
 [[package]]
-name = "project_a"
+name = "project-a"
 version = "1.2.3"
 "#
     ));
     assert!(lock_file.contains(
         r#"
 [[package]]
-name = "project_a"
+name = "project-a"
 version = "0.0.1"
 "#
     ));
@@ -600,4 +603,91 @@ name = "uuid"
 version = "0.8.0"
 "#
     ));
+
+    let first = skeleton.manifests[0].clone();
+    check(&first.contents, expect_test::expect![[r#"
+        [workspace]
+        members = ["src/project_a", "src/project_b"]
+    "#]]);
+    let second = skeleton.manifests[1].clone();
+    check(&second.contents, expect_test::expect![[r#"
+        bin = []
+        bench = []
+        test = []
+        example = []
+
+        [package]
+        name = "project_b"
+        edition = "2018"
+        version = "0.0.1"
+        authors = []
+        keywords = []
+        categories = []
+        autobins = true
+        autoexamples = true
+        autotests = true
+        autobenches = true
+        publish = true
+        [dependencies.project_a]
+        version = "0.0.1"
+        path = "../project_a"
+        features = []
+        optional = false
+
+        [dependencies.uuid]
+        version = "=0.8.0"
+        features = ["v4"]
+        optional = false
+
+        [lib]
+        test = true
+        doctest = true
+        bench = true
+        doc = true
+        plugin = false
+        proc-macro = false
+        harness = true
+        required-features = []
+        crate-type = ["cdylib"]
+    "#]]);
+    let third = skeleton.manifests[2].clone();
+    check(&third.contents, expect_test::expect![[r#"
+        bench = []
+        test = []
+        example = []
+
+        [[bin]]
+        path = "src/main.rs"
+        name = "test-dummy"
+        test = true
+        doctest = true
+        bench = true
+        doc = true
+        plugin = false
+        proc-macro = false
+        harness = true
+        required-features = []
+
+        [package]
+        name = "project-a"
+        edition = "2018"
+        version = "0.0.1"
+        authors = []
+        keywords = []
+        categories = []
+        autobins = true
+        autoexamples = true
+        autotests = true
+        autobenches = true
+        publish = true
+        [dependencies.uuid]
+        version = "=0.8.0"
+        features = ["v4"]
+        optional = false
+    "#]]);
+}
+
+fn check(actual: &str, expect: Expect) {
+    let actual = actual.to_string();
+    expect.assert_eq(&actual);
 }

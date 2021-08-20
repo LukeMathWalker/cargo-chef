@@ -20,6 +20,11 @@ pub struct Manifest {
     pub contents: String,
 }
 
+struct StructuredManifest {
+    relative_path: PathBuf,
+    contents: toml::Value,
+}
+
 const CONST_VERSION: &str = "0.0.1";
 
 impl Skeleton {
@@ -28,8 +33,8 @@ impl Skeleton {
         let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
             .build()
             .context("Failed to scan the files in the current directory.")?;
+        // Read all manifests in memory, parsing the TOML contents.
         let mut manifests = vec![];
-        let mut local_package_names = vec![];
         for manifest in walker {
             match manifest {
                 Ok(manifest) => {
@@ -41,20 +46,6 @@ impl Skeleton {
                     parsed.complete_from_path(&absolute_path)?;
 
                     let mut intermediate = toml::Value::try_from(parsed)?;
-
-                    // All local dependencies are emptied out when running `prepare`.
-                    // Wee do not want the recipe file to change if the only difference with
-                    // the previous docker build attempt is one of the versions declared in a
-                    // `Cargo.toml` file for a local crate (while the remote dependency tree
-                    // is unchanged).
-                    if let Some(package) = intermediate.get_mut("package") {
-                        if let Some(name) = package.get("name") {
-                            local_package_names.push(name.to_owned());
-                        }
-                        if let Some(version) = package.get_mut("version") {
-                            *version = toml::Value::String(CONST_VERSION.to_string());
-                        }
-                    }
 
                     // Specifically, toml gives no guarantees to the ordering of the auto binaries
                     // in its results. We will manually sort these to ensure that the output
@@ -78,9 +69,6 @@ impl Skeleton {
                         });
                     }
 
-                    // The serialised contents might be different from the original manifest!
-                    let contents = toml::to_string(&intermediate)?;
-
                     let relative_path = pathdiff::diff_paths(&absolute_path, &base_path)
                         .ok_or_else(|| {
                             anyhow::anyhow!(
@@ -88,9 +76,9 @@ impl Skeleton {
                                 &absolute_path
                             )
                         })?;
-                    manifests.push(Manifest {
+                    manifests.push(StructuredManifest {
                         relative_path,
-                        contents,
+                        contents: intermediate,
                     });
                 }
                 Err(e) => match handle_walk_error(e) {
@@ -100,6 +88,50 @@ impl Skeleton {
                     }
                 },
             }
+        }
+
+        let mut local_package_names = vec![];
+        for manifest in manifests.iter_mut() {
+            // All local dependencies are emptied out when running `prepare`.
+            // Wee do not want the recipe file to change if the only difference with
+            // the previous docker build attempt is one of the versions declared in a
+            // `Cargo.toml` file for a local crate (while the remote dependency tree
+            // is unchanged).
+            if let Some(package) = manifest.contents.get_mut("package") {
+                if let Some(name) = package.get("name") {
+                    local_package_names.push(name.to_owned());
+                }
+                if let Some(version) = package.get_mut("version") {
+                    *version = toml::Value::String(CONST_VERSION.to_string());
+                }
+            }
+        }
+
+        // Replace version of local crates when specified as dependencies of other members
+        // of the workspace, if any.
+        for manifest in manifests.iter_mut() {
+            if let Some(dependencies) = manifest.contents.get_mut("dependencies") {
+                for local_package in local_package_names.iter() {
+                    if let toml::Value::String(local_package) = local_package {
+                        let local_package = local_package.replace("-", "_");
+                        if let Some(local_dependency) = dependencies.get_mut(local_package) {
+                            if let Some(version) = local_dependency.get_mut("version") {
+                                *version = toml::Value::String(CONST_VERSION.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut serialised_manifests = vec![];
+        for manifest in manifests {
+            // The serialised contents might be different from the original manifest!
+            let contents = toml::to_string(&manifest.contents)?;
+            serialised_manifests.push(Manifest {
+                relative_path: manifest.relative_path,
+                contents
+            });
         }
 
         // As we run primarily in Docker, assume to find config.toml at root level.
@@ -159,7 +191,7 @@ impl Skeleton {
             }
         };
         Ok(Skeleton {
-            manifests,
+            manifests: serialised_manifests,
             config_file,
             lock_file,
         })
