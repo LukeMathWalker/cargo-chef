@@ -98,7 +98,7 @@ impl Skeleton {
             }
         }
 
-        // As we run primarly in Docker, assume to find config.toml at root level.
+        // As we run primarily in Docker, assume to find config.toml at root level.
         let config_file = match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
             Ok(config) => Some(config),
             Err(e) => {
