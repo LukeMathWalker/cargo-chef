@@ -42,14 +42,18 @@ impl Skeleton {
 
                     let mut intermediate = toml::Value::try_from(parsed)?;
 
-                    // ignore package.version for recipe
-                    if let Some(version) = intermediate.get_mut("package").and_then(|package| {
+                    // All local dependencies are emptied out when running `prepare`.
+                    // Wee do not want the recipe file to change if the only difference with
+                    // the previous docker build attempt is one of the versions declared in a
+                    // `Cargo.toml` file for a local crate (while the remote dependency tree
+                    // is unchanged).
+                    if let Some(package) = intermediate.get_mut("package") {
                         if let Some(name) = package.get("name") {
                             local_package_names.push(name.to_owned());
                         }
-                        package.get_mut("version")
-                    }) {
-                        *version = toml::Value::String(CONST_VERSION.to_string());
+                        if let Some(version) = package.get_mut("version") {
+                            *version = toml::Value::String(CONST_VERSION.to_string());
+                        }
                     }
 
                     // Specifically, toml gives no guarantees to the ordering of the auto binaries
