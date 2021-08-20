@@ -118,22 +118,30 @@ impl Skeleton {
         let lock_file = match fs::read_to_string(base_path.as_ref().join("Cargo.lock")) {
             Ok(lock) => {
                 let mut lock: toml::Value = toml::from_str(&lock)?;
-                // get the packages array
+                // All local dependencies are emptied out when running `prepare`.
+                // Wee do not want the recipe file to change if the only difference with
+                // the previous docker build attempt is the version of a local crate
+                // encoded in `Cargo.lock` (while the remote dependency tree
+                // is unchanged).
+                // We replace versions of local crates in `Cargo.lock` using the same dummy version
+                // used to replace versions in `Cargo.toml`s.
+                //
+                // TODO: verify that the substitution strategy works for all versions of the
+                // Cargo.lock format (v1 / v2 / v3)
                 if let Some(packages) = lock
                     .get_mut("package")
                     .and_then(|packages| packages.as_array_mut())
                 {
-                    // loop over the packages
                     packages
                         .iter_mut()
-                        // finding only the packages in our workspace
+                        // Find all local crates
                         .filter(|package| {
                             package
                                 .get("name")
                                 .map(|name| local_package_names.contains(name))
                                 .unwrap_or_default()
                         })
-                        // finally masking the version
+                        // Mask the version
                         .for_each(|package| {
                             if let Some(version) = package.get_mut("version") {
                                 *version = toml::Value::String(CONST_VERSION.to_string())
