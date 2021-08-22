@@ -26,62 +26,25 @@ struct ParsedManifest {
     contents: toml::Value,
 }
 
-const CONST_VERSION: &str = "0.0.1";
-
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
     pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
-        // Read all manifests in memory, parsing the TOML contents.
+        // Read relevant files from the filesystem
         let mut manifests = read_manifests(&base_path)?;
-        let local_package_names = parse_local_crate_names(&manifests);
-        mask_local_versions(&mut manifests, &local_package_names);
-        let mut serialised_manifests = serialize_manifests(manifests)?;
-
+        let mut lock_file = read_lockfile(&base_path)?;
         let config_file = read_config(&base_path)?;
 
-        let lock_file = match fs::read_to_string(base_path.as_ref().join("Cargo.lock")) {
-            Ok(lock) => {
-                let mut lock: toml::Value = toml::from_str(&lock)?;
-                // All local dependencies are emptied out when running `prepare`.
-                // Wee do not want the recipe file to change if the only difference with
-                // the previous docker build attempt is the version of a local crate
-                // encoded in `Cargo.lock` (while the remote dependency tree
-                // is unchanged).
-                // We replace versions of local crates in `Cargo.lock` using the same dummy version
-                // used to replace versions in `Cargo.toml`s.
-                if let Some(packages) = lock
-                    .get_mut("package")
-                    .and_then(|packages| packages.as_array_mut())
-                {
-                    packages
-                        .iter_mut()
-                        // Find all local crates
-                        .filter(|package| {
-                            package
-                                .get("name")
-                                .map(|name| local_package_names.contains(name))
-                                .unwrap_or_default()
-                        })
-                        // Mask the version
-                        .for_each(|package| {
-                            if let Some(version) = package.get_mut("version") {
-                                *version = toml::Value::String(CONST_VERSION.to_string())
-                            }
-                        });
-                }
+        mask_local_crate_versions(&mut manifests, &mut lock_file);
 
-                Some(toml::to_string(&lock)?)
-            }
-            Err(e) => {
-                if std::io::ErrorKind::NotFound != e.kind() {
-                    return Err(anyhow::Error::from(e).context("Failed to read Cargo.lock file."));
-                }
-                None
-            }
-        };
+        let lock_file = lock_file.map(|l| {
+            toml::to_string(&l)
+        }).transpose()?;
+
+        let mut serialised_manifests = serialize_manifests(manifests)?;
         // We don't want an ordering issue (e.g. related to how files are read from the filesystem)
         // to make our skeleton generation logic non-reproducible - therefore we sort!
         serialised_manifests.sort_by_key(|m| m.relative_path.clone());
+
         Ok(Skeleton {
             manifests: serialised_manifests,
             config_file,
@@ -426,57 +389,6 @@ fn read_manifests<P: AsRef<Path>>(
     Ok(manifests)
 }
 
-fn parse_local_crate_names(manifests: &[ParsedManifest]) -> Vec<toml::Value> {
-    let mut local_package_names = vec![];
-    for manifest in manifests.iter() {
-        if let Some(package) = manifest.contents.get("package") {
-            if let Some(name) = package.get("name") {
-                local_package_names.push(name.to_owned());
-            }
-        }
-    }
-    local_package_names
-}
-
-/// All local dependencies are emptied out when running `prepare`.
-/// Wee do not want the recipe file to change if the only difference with
-/// the previous docker build attempt is one of the versions declared in a
-/// `Cargo.toml` file for a local crate (while the remote dependency tree
-/// is unchanged).
-/// We also replace the version of local crates when specified as dependencies of other
-/// members of the workspace.
-fn mask_local_versions(manifests: &mut [ParsedManifest], local_package_names: &[Value]) {
-    for manifest in manifests.iter_mut() {
-        if let Some(package) = manifest.contents.get_mut("package") {
-            if let Some(version) = package.get_mut("version") {
-                *version = toml::Value::String(CONST_VERSION.to_string());
-            }
-        }
-        mask_local_dependency_versions(local_package_names, manifest, "dependencies");
-        mask_local_dependency_versions(local_package_names, manifest, "dev-dependencies");
-        mask_local_dependency_versions(local_package_names, manifest, "build-dependencies");
-    }
-}
-
-fn mask_local_dependency_versions(
-    local_package_names: &[Value],
-    manifest: &mut ParsedManifest,
-    dependency_key: &str,
-) {
-    if let Some(dependencies) = manifest.contents.get_mut(dependency_key) {
-        for local_package in local_package_names.iter() {
-            if let toml::Value::String(local_package) = local_package {
-                let local_package = local_package.replace("-", "_");
-                if let Some(local_dependency) = dependencies.get_mut(local_package) {
-                    if let Some(version) = local_dependency.get_mut("version") {
-                        *version = toml::Value::String(CONST_VERSION.to_string());
-                    }
-                }
-            }
-        }
-    }
-}
-
 fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, anyhow::Error> {
     let mut serialised_manifests = vec![];
     for manifest in manifests {
@@ -489,3 +401,106 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
     }
     Ok(serialised_manifests)
 }
+
+fn read_lockfile<P: AsRef<Path>>(
+    base_path: &P,
+) -> Result<Option<toml::Value>, anyhow::Error> {
+    match fs::read_to_string(base_path.as_ref().join("Cargo.lock")) {
+        Ok(lock) => {
+            let lock: toml::Value = toml::from_str(&lock)?;
+            Ok(Some(lock))
+        }
+        Err(e) => {
+            if std::io::ErrorKind::NotFound != e.kind() {
+                return Err(anyhow::Error::from(e).context("Failed to read Cargo.lock file."));
+            }
+            Ok(None)
+        }
+    }
+}
+
+
+/// All local dependencies are emptied out when running `prepare`.
+/// We do not want the recipe file to change if the only difference with
+/// the previous docker build attempt is the version of a local crate
+/// encoded in `Cargo.lock` (while the remote dependency tree
+/// is unchanged) or in the corresponding `Cargo.toml` manifest.
+/// We replace versions of local crates in `Cargo.lock` and in all `Cargo.toml`s, including
+/// when specified as dependency of another crate in the workspace.
+fn mask_local_crate_versions(mut manifests: &mut [ParsedManifest], mut lock_file: &mut Option<Value>) {
+    fn mask_local_versions_in_lockfile(lock_file: &mut toml::Value, local_package_names: &[Value]) {
+        if let Some(packages) = lock_file
+            .get_mut("package")
+            .and_then(|packages| packages.as_array_mut())
+        {
+            packages
+                .iter_mut()
+                // Find all local crates
+                .filter(|package| {
+                    package
+                        .get("name")
+                        .map(|name| local_package_names.contains(name))
+                        .unwrap_or_default()
+                })
+                // Mask the version
+                .for_each(|package| {
+                    if let Some(version) = package.get_mut("version") {
+                        *version = toml::Value::String(CONST_VERSION.to_string())
+                    }
+                });
+        }
+    }
+
+    fn mask_local_versions_in_manifests(manifests: &mut [ParsedManifest], local_package_names: &[Value]) {
+        for manifest in manifests.iter_mut() {
+            if let Some(package) = manifest.contents.get_mut("package") {
+                if let Some(version) = package.get_mut("version") {
+                    *version = toml::Value::String(CONST_VERSION.to_string());
+                }
+            }
+            mask_local_dependency_versions(local_package_names, manifest, "dependencies");
+            mask_local_dependency_versions(local_package_names, manifest, "dev-dependencies");
+            mask_local_dependency_versions(local_package_names, manifest, "build-dependencies");
+        }
+    }
+
+    fn mask_local_dependency_versions(
+        local_package_names: &[Value],
+        manifest: &mut ParsedManifest,
+        dependency_key: &str,
+    ) {
+        if let Some(dependencies) = manifest.contents.get_mut(dependency_key) {
+            for local_package in local_package_names.iter() {
+                if let toml::Value::String(local_package) = local_package {
+                    let local_package = local_package.replace("-", "_");
+                    if let Some(local_dependency) = dependencies.get_mut(local_package) {
+                        if let Some(version) = local_dependency.get_mut("version") {
+                            *version = toml::Value::String(CONST_VERSION.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn parse_local_crate_names(manifests: &[ParsedManifest]) -> Vec<toml::Value> {
+        let mut local_package_names = vec![];
+        for manifest in manifests.iter() {
+            if let Some(package) = manifest.contents.get("package") {
+                if let Some(name) = package.get("name") {
+                    local_package_names.push(name.to_owned());
+                }
+            }
+        }
+        local_package_names
+    }
+
+    const CONST_VERSION: &str = "0.0.1";
+
+    let local_package_names = parse_local_crate_names(&manifests);
+    mask_local_versions_in_manifests(&mut manifests, &local_package_names);
+    if let Some(l) = &mut lock_file {
+        mask_local_versions_in_lockfile(l, &local_package_names);
+    }
+}
+
