@@ -7,8 +7,10 @@ use super::ParsedManifest;
 /// is unchanged) or in the corresponding `Cargo.toml` manifest.
 /// We replace versions of local crates in `Cargo.lock` and in all `Cargo.toml`s, including
 /// when specified as dependency of another crate in the workspace.
-pub(super) fn mask_local_crate_versions(mut manifests: &mut [ParsedManifest], mut lock_file: &mut Option<toml::Value>) {
-
+pub(super) fn mask_local_crate_versions(
+    mut manifests: &mut [ParsedManifest],
+    mut lock_file: &mut Option<toml::Value>,
+) {
     let local_package_names = parse_local_crate_names(&manifests);
     mask_local_versions_in_manifests(&mut manifests, &local_package_names);
     if let Some(l) = &mut lock_file {
@@ -19,7 +21,10 @@ pub(super) fn mask_local_crate_versions(mut manifests: &mut [ParsedManifest], mu
 /// Dummy version used for all local crates.
 const CONST_VERSION: &str = "0.0.1";
 
-fn mask_local_versions_in_lockfile(lock_file: &mut toml::Value, local_package_names: &[toml::Value]) {
+fn mask_local_versions_in_lockfile(
+    lock_file: &mut toml::Value,
+    local_package_names: &[toml::Value],
+) {
     if let Some(packages) = lock_file
         .get_mut("package")
         .and_then(|packages| packages.as_array_mut())
@@ -42,7 +47,10 @@ fn mask_local_versions_in_lockfile(lock_file: &mut toml::Value, local_package_na
     }
 }
 
-fn mask_local_versions_in_manifests(manifests: &mut [ParsedManifest], local_package_names: &[toml::Value]) {
+fn mask_local_versions_in_manifests(
+    manifests: &mut [ParsedManifest],
+    local_package_names: &[toml::Value],
+) {
     for manifest in manifests.iter_mut() {
         if let Some(package) = manifest.contents.get_mut("package") {
             if let Some(version) = package.get_mut("version") {

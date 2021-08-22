@@ -1,10 +1,10 @@
-mod version_masking;
 mod read;
+mod version_masking;
 
 use crate::OptimisationProfile;
 use anyhow::Context;
 use fs_err as fs;
-use globwalk::{GlobWalkerBuilder};
+use globwalk::GlobWalkerBuilder;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -37,9 +37,7 @@ impl Skeleton {
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
 
-        let lock_file = lock_file.map(|l| {
-            toml::to_string(&l)
-        }).transpose()?;
+        let lock_file = lock_file.map(|l| toml::to_string(&l)).transpose()?;
 
         let mut serialised_manifests = serialize_manifests(manifests)?;
         // We don't want an ordering issue (e.g. related to how files are read from the filesystem)

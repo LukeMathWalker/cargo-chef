@@ -1,14 +1,12 @@
 //! Logic to read all the files required to build a caching layer for a project.
 use super::ParsedManifest;
-use std::path::Path;
-use globwalk::{WalkError, GlobWalkerBuilder};
-use std::fs;
-use std::str::FromStr;
 use anyhow::Context;
+use globwalk::{GlobWalkerBuilder, WalkError};
+use std::fs;
+use std::path::Path;
+use std::str::FromStr;
 
-pub(super) fn config<P: AsRef<Path>>(
-    base_path: &P,
-) -> Result<Option<String>, anyhow::Error> {
+pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, anyhow::Error> {
     // Given that we run primarily in Docker, assume to find config.toml at root level.
     match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
         Ok(config) => Ok(Some(config)),

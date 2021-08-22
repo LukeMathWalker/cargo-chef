@@ -803,7 +803,7 @@ version = "0.8.0"
             harness = true
             required-features = []
             crate-type = ["cdylib"]
-        "#]]
+        "#]],
     );
 }
 
