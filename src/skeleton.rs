@@ -37,18 +37,7 @@ impl Skeleton {
         mask_local_versions(&mut manifests, &local_package_names);
         let mut serialised_manifests = serialize_manifests(manifests)?;
 
-        // As we run primarily in Docker, assume to find config.toml at root level.
-        let config_file = match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
-            Ok(config) => Some(config),
-            Err(e) => {
-                if std::io::ErrorKind::NotFound != e.kind() {
-                    return Err(
-                        anyhow::Error::from(e).context("Failed to read .cargo/config.toml file.")
-                    );
-                }
-                None
-            }
-        };
+        let config_file = read_config(&base_path)?;
 
         let lock_file = match fs::read_to_string(base_path.as_ref().join("Cargo.lock")) {
             Ok(lock) => {
@@ -356,6 +345,23 @@ fn handle_walk_error(e: WalkError) -> ErrorStrategy {
         }
     }
     ErrorStrategy::Crash(e)
+}
+
+fn read_config<P: AsRef<Path>>(
+    base_path: &P,
+) -> Result<Option<String>, anyhow::Error> {
+    // Given that we run primarily in Docker, assume to find config.toml at root level.
+    match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
+        Ok(config) => Ok(Some(config)),
+        Err(e) => {
+            if std::io::ErrorKind::NotFound != e.kind() {
+                return Err(
+                    anyhow::Error::from(e).context("Failed to read .cargo/config.toml file.")
+                );
+            }
+            Ok(None)
+        }
+    }
 }
 
 fn read_manifests<P: AsRef<Path>>(
