@@ -49,9 +49,6 @@ impl Skeleton {
                 // is unchanged).
                 // We replace versions of local crates in `Cargo.lock` using the same dummy version
                 // used to replace versions in `Cargo.toml`s.
-                //
-                // TODO: verify that the substitution strategy works for all versions of the
-                // Cargo.lock format (v1 / v2 / v3)
                 if let Some(packages) = lock
                     .get_mut("package")
                     .and_then(|packages| packages.as_array_mut())
