@@ -2,7 +2,7 @@ use crate::OptimisationProfile;
 use anyhow::Context;
 use cargo_manifest::Value;
 use fs_err as fs;
-use globwalk::{GlobWalker, GlobWalkerBuilder, WalkError};
+use globwalk::{GlobWalkerBuilder, WalkError};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -31,24 +31,11 @@ const CONST_VERSION: &str = "0.0.1";
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
     pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
-        let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
-            .build()
-            .context("Failed to scan the files in the current directory.")?;
         // Read all manifests in memory, parsing the TOML contents.
-        let mut manifests = read_manifests(&base_path, walker)?;
+        let mut manifests = read_manifests(&base_path)?;
         let local_package_names = parse_local_crate_names(&manifests);
         mask_local_versions(&mut manifests, &local_package_names);
-
-        let mut serialised_manifests = vec![];
-        for manifest in manifests {
-            // The serialised contents might be different from the original manifest!
-            let contents = toml::to_string(&manifest.contents)?;
-            serialised_manifests.push(Manifest {
-                relative_path: manifest.relative_path,
-                contents,
-            });
-        }
-        serialised_manifests.sort_by_key(|m| m.relative_path.clone());
+        let mut serialised_manifests = serialize_manifests(manifests)?;
 
         // As we run primarily in Docker, assume to find config.toml at root level.
         let config_file = match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
@@ -106,6 +93,9 @@ impl Skeleton {
                 None
             }
         };
+        // We don't want an ordering issue (e.g. related to how files are read from the filesystem)
+        // to make our skeleton generation logic non-reproducible - therefore we sort!
+        serialised_manifests.sort_by_key(|m| m.relative_path.clone());
         Ok(Skeleton {
             manifests: serialised_manifests,
             config_file,
@@ -370,8 +360,11 @@ fn handle_walk_error(e: WalkError) -> ErrorStrategy {
 
 fn read_manifests<P: AsRef<Path>>(
     base_path: &P,
-    walker: GlobWalker,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
+    let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
+        .build()
+        .context("Failed to scan the files in the current directory.")?;
+
     let mut manifests = vec![];
     for manifest in walker {
         match manifest {
@@ -479,4 +472,17 @@ fn mask_local_dependency_versions(
             }
         }
     }
+}
+
+fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, anyhow::Error> {
+    let mut serialised_manifests = vec![];
+    for manifest in manifests {
+        // The serialised contents might be different from the original manifest!
+        let contents = toml::to_string(&manifest.contents)?;
+        serialised_manifests.push(Manifest {
+            relative_path: manifest.relative_path,
+            contents,
+        });
+    }
+    Ok(serialised_manifests)
 }
