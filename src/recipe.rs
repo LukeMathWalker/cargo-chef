@@ -29,6 +29,7 @@ pub struct CookArgs {
     pub package: Option<String>,
     pub workspace: bool,
     pub offline: bool,
+    pub no_std: bool,
 }
 
 impl Recipe {
@@ -39,7 +40,8 @@ impl Recipe {
 
     pub fn cook(&self, args: CookArgs) -> Result<(), anyhow::Error> {
         let current_directory = std::env::current_dir()?;
-        self.skeleton.build_minimum_project(&current_directory)?;
+        self.skeleton
+            .build_minimum_project(&current_directory, args.no_std)?;
         build_dependencies(&args);
         self.skeleton
             .remove_compiled_dummies(
@@ -78,6 +80,7 @@ fn build_dependencies(args: &CookArgs) {
         package,
         workspace,
         offline,
+        ..
     } = args;
     let mut command = Command::new("cargo");
     let command_with_args = if *check {

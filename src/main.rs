@@ -100,6 +100,9 @@ pub struct Cook {
     /// Build offline.
     #[clap(long)]
     offline: bool,
+    /// Cook using `#[no_std]` configuration  (does not affect `proc-macro` crates)
+    #[clap(long)]
+    no_std: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -128,6 +131,7 @@ fn _main() -> Result<(), anyhow::Error> {
             package,
             workspace,
             offline,
+            no_std,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -192,6 +196,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     package,
                     workspace,
                     offline,
+                    no_std,
                 })
                 .context("Failed to cook recipe.")?;
         }
