@@ -8,12 +8,12 @@ use super::ParsedManifest;
 /// We replace versions of local crates in `Cargo.lock` and in all `Cargo.toml`s, including
 /// when specified as dependency of another crate in the workspace.
 pub(super) fn mask_local_crate_versions(
-    mut manifests: &mut [ParsedManifest],
-    mut lock_file: &mut Option<toml::Value>,
+    manifests: &mut [ParsedManifest],
+    lock_file: &mut Option<toml::Value>,
 ) {
-    let local_package_names = parse_local_crate_names(&manifests);
-    mask_local_versions_in_manifests(&mut manifests, &local_package_names);
-    if let Some(l) = &mut lock_file {
+    let local_package_names = parse_local_crate_names(manifests);
+    mask_local_versions_in_manifests(manifests, &local_package_names);
+    if let Some(l) = lock_file {
         mask_local_versions_in_lockfile(l, &local_package_names);
     }
 }
