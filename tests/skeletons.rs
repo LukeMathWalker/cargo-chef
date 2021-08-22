@@ -727,83 +727,83 @@ version = "0.8.0"
     check(
         &second.contents,
         expect_test::expect![[r#"
-        bin = []
-        bench = []
-        test = []
-        example = []
+            bench = []
+            test = []
+            example = []
 
-        [package]
-        name = "project_b"
-        edition = "2018"
-        version = "0.0.1"
-        authors = []
-        keywords = []
-        categories = []
-        autobins = true
-        autoexamples = true
-        autotests = true
-        autobenches = true
-        publish = true
-        [dependencies.project_a]
-        version = "0.0.1"
-        path = "../project_a"
-        features = []
-        optional = false
+            [[bin]]
+            path = "src/main.rs"
+            name = "test-dummy"
+            test = true
+            doctest = true
+            bench = true
+            doc = true
+            plugin = false
+            proc-macro = false
+            harness = true
+            required-features = []
 
-        [dependencies.uuid]
-        version = "=0.8.0"
-        features = ["v4"]
-        optional = false
-
-        [lib]
-        test = true
-        doctest = true
-        bench = true
-        doc = true
-        plugin = false
-        proc-macro = false
-        harness = true
-        required-features = []
-        crate-type = ["cdylib"]
-    "#]],
+            [package]
+            name = "project-a"
+            edition = "2018"
+            version = "0.0.1"
+            authors = []
+            keywords = []
+            categories = []
+            autobins = true
+            autoexamples = true
+            autotests = true
+            autobenches = true
+            publish = true
+            [dependencies.uuid]
+            version = "=0.8.0"
+            features = ["v4"]
+            optional = false
+        "#]],
     );
     let third = skeleton.manifests[2].clone();
     check(
         &third.contents,
         expect_test::expect![[r#"
-        bench = []
-        test = []
-        example = []
+            bin = []
+            bench = []
+            test = []
+            example = []
 
-        [[bin]]
-        path = "src/main.rs"
-        name = "test-dummy"
-        test = true
-        doctest = true
-        bench = true
-        doc = true
-        plugin = false
-        proc-macro = false
-        harness = true
-        required-features = []
+            [package]
+            name = "project_b"
+            edition = "2018"
+            version = "0.0.1"
+            authors = []
+            keywords = []
+            categories = []
+            autobins = true
+            autoexamples = true
+            autotests = true
+            autobenches = true
+            publish = true
+            [dependencies.project_a]
+            version = "0.0.1"
+            path = "../project_a"
+            features = []
+            optional = false
 
-        [package]
-        name = "project-a"
-        edition = "2018"
-        version = "0.0.1"
-        authors = []
-        keywords = []
-        categories = []
-        autobins = true
-        autoexamples = true
-        autotests = true
-        autobenches = true
-        publish = true
-        [dependencies.uuid]
-        version = "=0.8.0"
-        features = ["v4"]
-        optional = false
-    "#]],
+            [dependencies.uuid]
+            version = "=0.8.0"
+            features = ["v4"]
+            optional = false
+
+            [lib]
+            test = true
+            doctest = true
+            bench = true
+            doc = true
+            plugin = false
+            proc-macro = false
+            harness = true
+            required-features = []
+            crate-type = ["cdylib"]
+        "#]],
     );
 }
 

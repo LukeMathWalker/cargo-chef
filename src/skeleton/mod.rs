@@ -1,11 +1,12 @@
+mod read;
+mod version_masking;
+
 use crate::OptimisationProfile;
 use anyhow::Context;
-use cargo_manifest::Value;
 use fs_err as fs;
-use globwalk::{GlobWalker, GlobWalkerBuilder, WalkError};
+use globwalk::GlobWalkerBuilder;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Skeleton {
@@ -21,90 +22,28 @@ pub struct Manifest {
     pub contents: String,
 }
 
-struct StructuredManifest {
+pub(in crate::skeleton) struct ParsedManifest {
     relative_path: PathBuf,
     contents: toml::Value,
 }
 
-const CONST_VERSION: &str = "0.0.1";
-
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
     pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
-        let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
-            .build()
-            .context("Failed to scan the files in the current directory.")?;
-        // Read all manifests in memory, parsing the TOML contents.
-        let mut manifests = read_manifests(&base_path, walker)?;
-        let local_package_names = parse_local_crate_names(&manifests);
-        mask_local_versions(&mut manifests, &local_package_names);
+        // Read relevant files from the filesystem
+        let mut manifests = read::manifests(&base_path)?;
+        let mut lock_file = read::lockfile(&base_path)?;
+        let config_file = read::config(&base_path)?;
 
-        let mut serialised_manifests = vec![];
-        for manifest in manifests {
-            // The serialised contents might be different from the original manifest!
-            let contents = toml::to_string(&manifest.contents)?;
-            serialised_manifests.push(Manifest {
-                relative_path: manifest.relative_path,
-                contents,
-            });
-        }
+        version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
 
-        // As we run primarily in Docker, assume to find config.toml at root level.
-        let config_file = match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
-            Ok(config) => Some(config),
-            Err(e) => {
-                if std::io::ErrorKind::NotFound != e.kind() {
-                    return Err(
-                        anyhow::Error::from(e).context("Failed to read .cargo/config.toml file.")
-                    );
-                }
-                None
-            }
-        };
+        let lock_file = lock_file.map(|l| toml::to_string(&l)).transpose()?;
 
-        let lock_file = match fs::read_to_string(base_path.as_ref().join("Cargo.lock")) {
-            Ok(lock) => {
-                let mut lock: toml::Value = toml::from_str(&lock)?;
-                // All local dependencies are emptied out when running `prepare`.
-                // Wee do not want the recipe file to change if the only difference with
-                // the previous docker build attempt is the version of a local crate
-                // encoded in `Cargo.lock` (while the remote dependency tree
-                // is unchanged).
-                // We replace versions of local crates in `Cargo.lock` using the same dummy version
-                // used to replace versions in `Cargo.toml`s.
-                //
-                // TODO: verify that the substitution strategy works for all versions of the
-                // Cargo.lock format (v1 / v2 / v3)
-                if let Some(packages) = lock
-                    .get_mut("package")
-                    .and_then(|packages| packages.as_array_mut())
-                {
-                    packages
-                        .iter_mut()
-                        // Find all local crates
-                        .filter(|package| {
-                            package
-                                .get("name")
-                                .map(|name| local_package_names.contains(name))
-                                .unwrap_or_default()
-                        })
-                        // Mask the version
-                        .for_each(|package| {
-                            if let Some(version) = package.get_mut("version") {
-                                *version = toml::Value::String(CONST_VERSION.to_string())
-                            }
-                        });
-                }
+        let mut serialised_manifests = serialize_manifests(manifests)?;
+        // We don't want an ordering issue (e.g. related to how files are read from the filesystem)
+        // to make our skeleton generation logic non-reproducible - therefore we sort!
+        serialised_manifests.sort_by_key(|m| m.relative_path.clone());
 
-                Some(toml::to_string(&lock)?)
-            }
-            Err(e) => {
-                if std::io::ErrorKind::NotFound != e.kind() {
-                    return Err(anyhow::Error::from(e).context("Failed to read Cargo.lock file."));
-                }
-                None
-            }
-        };
         Ok(Skeleton {
             manifests: serialised_manifests,
             config_file,
@@ -346,136 +285,15 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
     }
 }
 
-/// What should we should when we encounter an issue while walking the current directory?
-///
-/// If `ErrorStrategy::Ignore`, just skip the file/directory and keep going.
-/// If `ErrorStrategy::Crash`, stop exploring and return an error to the caller.
-enum ErrorStrategy {
-    Ignore,
-    Crash(WalkError),
-}
-
-/// Ignore directory/files for which we don't have enough permissions to perform our scan.
-#[must_use]
-fn handle_walk_error(e: WalkError) -> ErrorStrategy {
-    if let Some(inner) = e.io_error() {
-        if std::io::ErrorKind::PermissionDenied == inner.kind() {
-            log::warn!("Missing permission to read entry: {}\nSkipping.", inner);
-            return ErrorStrategy::Ignore;
-        }
+fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, anyhow::Error> {
+    let mut serialised_manifests = vec![];
+    for manifest in manifests {
+        // The serialised contents might be different from the original manifest!
+        let contents = toml::to_string(&manifest.contents)?;
+        serialised_manifests.push(Manifest {
+            relative_path: manifest.relative_path,
+            contents,
+        });
     }
-    ErrorStrategy::Crash(e)
-}
-
-fn read_manifests<P: AsRef<Path>>(
-    base_path: &P,
-    walker: GlobWalker,
-) -> Result<Vec<StructuredManifest>, anyhow::Error> {
-    let mut manifests = vec![];
-    for manifest in walker {
-        match manifest {
-            Ok(manifest) => {
-                let absolute_path = manifest.path().to_path_buf();
-                let contents = fs::read_to_string(&absolute_path)?;
-
-                let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
-                // Required to detect bin/libs when the related section is omitted from the manifest
-                parsed.complete_from_path(&absolute_path)?;
-
-                let mut intermediate = toml::Value::try_from(parsed)?;
-
-                // Specifically, toml gives no guarantees to the ordering of the auto binaries
-                // in its results. We will manually sort these to ensure that the output
-                // manifest will match.
-                let bins = intermediate
-                    .get_mut("bin")
-                    .and_then(|bins| bins.as_array_mut());
-                if let Some(bins) = bins {
-                    bins.sort_by(|bin_a, bin_b| {
-                        let bin_a_path = bin_a
-                            .as_table()
-                            .and_then(|table| table.get("path"))
-                            .and_then(|path| path.as_str())
-                            .unwrap();
-                        let bin_b_path = bin_b
-                            .as_table()
-                            .and_then(|table| table.get("path"))
-                            .and_then(|path| path.as_str())
-                            .unwrap();
-                        bin_a_path.cmp(bin_b_path)
-                    });
-                }
-
-                let relative_path =
-                    pathdiff::diff_paths(&absolute_path, &base_path).ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "Failed to compute relative path of manifest {:?}",
-                            &absolute_path
-                        )
-                    })?;
-                manifests.push(StructuredManifest {
-                    relative_path,
-                    contents: intermediate,
-                });
-            }
-            Err(e) => match handle_walk_error(e) {
-                ErrorStrategy::Ignore => {}
-                ErrorStrategy::Crash(e) => {
-                    return Err(e.into());
-                }
-            },
-        }
-    }
-    Ok(manifests)
-}
-
-fn parse_local_crate_names(manifests: &[StructuredManifest]) -> Vec<toml::Value> {
-    let mut local_package_names = vec![];
-    for manifest in manifests.iter() {
-        if let Some(package) = manifest.contents.get("package") {
-            if let Some(name) = package.get("name") {
-                local_package_names.push(name.to_owned());
-            }
-        }
-    }
-    local_package_names
-}
-
-/// All local dependencies are emptied out when running `prepare`.
-/// Wee do not want the recipe file to change if the only difference with
-/// the previous docker build attempt is one of the versions declared in a
-/// `Cargo.toml` file for a local crate (while the remote dependency tree
-/// is unchanged).
-/// We also replace the version of local crates when specified as dependencies of other
-/// members of the workspace.
-fn mask_local_versions(manifests: &mut [StructuredManifest], local_package_names: &[Value]) {
-    for manifest in manifests.iter_mut() {
-        if let Some(package) = manifest.contents.get_mut("package") {
-            if let Some(version) = package.get_mut("version") {
-                *version = toml::Value::String(CONST_VERSION.to_string());
-            }
-        }
-        mask_local_dependency_versions(local_package_names, manifest, "dependencies");
-        mask_local_dependency_versions(local_package_names, manifest, "dev-dependencies");
-        mask_local_dependency_versions(local_package_names, manifest, "build-dependencies");
-    }
-}
-
-fn mask_local_dependency_versions(
-    local_package_names: &[Value],
-    manifest: &mut StructuredManifest,
-    dependency_key: &str,
-) {
-    if let Some(dependencies) = manifest.contents.get_mut(dependency_key) {
-        for local_package in local_package_names.iter() {
-            if let toml::Value::String(local_package) = local_package {
-                let local_package = local_package.replace("-", "_");
-                if let Some(local_dependency) = dependencies.get_mut(local_package) {
-                    if let Some(version) = local_dependency.get_mut("version") {
-                        *version = toml::Value::String(CONST_VERSION.to_string());
-                    }
-                }
-            }
-        }
-    }
+    Ok(serialised_manifests)
 }
