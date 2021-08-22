@@ -1,7 +1,10 @@
-use assert_fs::prelude::{FileTouch, FileWriteStr, PathChild, PathCreateDir};
+use std::path::Path;
+
+use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use chef::Skeleton;
 use expect_test::Expect;
+use predicates::prelude::*;
 
 #[test]
 pub fn no_workspace() {
@@ -34,15 +37,45 @@ path = "src/main.rs"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory.child("src").child("main.rs").path().exists());
-    assert!(cook_directory.child("Cargo.lock").path().exists());
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
+        .child("src")
+        .child("main.rs")
+        .assert("fn main() {}");
+    cook_directory
+        .child("Cargo.lock")
+        .assert(predicate::path::exists());
+
+    // Act (no_std)
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), true)
+        .unwrap();
+
+    // Assert (no_std)
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory.child("src").child("main.rs").assert(
+        r#"#![no_std]
+#![no_main]
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+"#,
+    );
+    cook_directory
+        .child("Cargo.lock")
+        .assert(predicate::path::exists());
 }
 
 #[test]
@@ -110,25 +143,54 @@ uuid = { version = "=0.8.0", features = ["v4"] }
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
     assert_eq!(3, skeleton.manifests.len());
-    assert!(cook_directory
+    cook_directory
         .child("src")
         .child("project_a")
         .child("src")
         .child("main.rs")
-        .path()
-        .exists());
-    assert!(cook_directory
+        .assert("fn main() {}");
+    cook_directory
         .child("src")
         .child("project_b")
         .child("src")
         .child("lib.rs")
-        .path()
-        .exists())
+        .assert("");
+
+    // Act (no_std)
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), true)
+        .unwrap();
+
+    // Assert (no_std)
+    assert_eq!(3, skeleton.manifests.len());
+    cook_directory
+        .child("src")
+        .child("project_a")
+        .child("src")
+        .child("main.rs")
+        .assert(
+            r#"#![no_std]
+#![no_main]
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+"#,
+        );
+    cook_directory
+        .child("src")
+        .child("project_b")
+        .child("src")
+        .child("lib.rs")
+        .assert("#![no_std]");
 }
 
 #[test]
@@ -170,18 +232,19 @@ harness = false
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
         .child("benches")
         .child("basics.rs")
-        .path()
-        .exists())
+        .assert("fn main() {}");
+
+    // no_std benches are not a thing yet
 }
 
 #[test]
@@ -217,18 +280,43 @@ name = "foo"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory
-        .child("tests")
-        .child("foo.rs")
-        .path()
-        .exists())
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory.child("tests").child("foo.rs").assert("");
+
+    // Act (no_std)
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), true)
+        .unwrap();
+
+    // Assert (no_std)
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory.child("tests").child("foo.rs").assert(
+        r#"#![no_std]
+#![no_main]
+#![feature(custom_test_frameworks)]
+#![test_runner(test_runner)]
+
+#[no_mangle]
+pub extern "C" fn _init() {}
+
+fn test_runner(_: &[&dyn Fn()]) {}
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+"#,
+    );
 }
 
 #[test]
@@ -264,18 +352,39 @@ name = "foo"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
         .child("examples")
         .child("foo.rs")
-        .path()
-        .exists())
+        .assert("fn main() {}");
+
+    // Act (no_std)
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), true)
+        .unwrap();
+
+    // Assert (no_std)
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory.child("examples").child("foo.rs").assert(
+        r#"#![no_std]
+#![no_main]
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+"#,
+    );
 }
 
 #[test]
@@ -347,19 +456,21 @@ pub fn config_toml() {
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
-    let manifest = skeleton.manifests[0].clone();
-    assert_eq!("Cargo.toml", manifest.relative_path.to_str().unwrap());
-    assert!(cook_directory.child("src").child("main.rs").path().exists());
-    assert!(cook_directory
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
+        .child("src")
+        .child("main.rs")
+        .assert("fn main() {}");
+    cook_directory
         .child(".cargo")
         .child("config.toml")
-        .path()
-        .exists());
+        .assert(predicate::path::exists());
 }
 
 #[test]
@@ -394,7 +505,7 @@ pub fn version() {
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -447,7 +558,7 @@ version = "1.2.3"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
@@ -563,7 +674,7 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
-        .build_minimum_project(cook_directory.path())
+        .build_minimum_project(cook_directory.path(), false)
         .unwrap();
 
     // Assert
