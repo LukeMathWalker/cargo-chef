@@ -21,7 +21,7 @@ pub struct Manifest {
     pub contents: String,
 }
 
-struct StructuredManifest {
+struct ParsedManifest {
     relative_path: PathBuf,
     contents: toml::Value,
 }
@@ -48,6 +48,7 @@ impl Skeleton {
                 contents,
             });
         }
+        serialised_manifests.sort_by_key(|m| m.relative_path.clone());
 
         // As we run primarily in Docker, assume to find config.toml at root level.
         let config_file = match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
@@ -322,7 +323,7 @@ fn handle_walk_error(e: WalkError) -> ErrorStrategy {
 fn read_manifests<P: AsRef<Path>>(
     base_path: &P,
     walker: GlobWalker,
-) -> Result<Vec<StructuredManifest>, anyhow::Error> {
+) -> Result<Vec<ParsedManifest>, anyhow::Error> {
     let mut manifests = vec![];
     for manifest in walker {
         match manifest {
@@ -365,7 +366,7 @@ fn read_manifests<P: AsRef<Path>>(
                             &absolute_path
                         )
                     })?;
-                manifests.push(StructuredManifest {
+                manifests.push(ParsedManifest {
                     relative_path,
                     contents: intermediate,
                 });
@@ -381,7 +382,7 @@ fn read_manifests<P: AsRef<Path>>(
     Ok(manifests)
 }
 
-fn parse_local_crate_names(manifests: &[StructuredManifest]) -> Vec<toml::Value> {
+fn parse_local_crate_names(manifests: &[ParsedManifest]) -> Vec<toml::Value> {
     let mut local_package_names = vec![];
     for manifest in manifests.iter() {
         if let Some(package) = manifest.contents.get("package") {
@@ -400,7 +401,7 @@ fn parse_local_crate_names(manifests: &[StructuredManifest]) -> Vec<toml::Value>
 /// is unchanged).
 /// We also replace the version of local crates when specified as dependencies of other
 /// members of the workspace.
-fn mask_local_versions(manifests: &mut [StructuredManifest], local_package_names: &[Value]) {
+fn mask_local_versions(manifests: &mut [ParsedManifest], local_package_names: &[Value]) {
     for manifest in manifests.iter_mut() {
         if let Some(package) = manifest.contents.get_mut("package") {
             if let Some(version) = package.get_mut("version") {
@@ -415,7 +416,7 @@ fn mask_local_versions(manifests: &mut [StructuredManifest], local_package_names
 
 fn mask_local_dependency_versions(
     local_package_names: &[Value],
-    manifest: &mut StructuredManifest,
+    manifest: &mut ParsedManifest,
     dependency_key: &str,
 ) {
     if let Some(dependencies) = manifest.contents.get_mut(dependency_key) {
