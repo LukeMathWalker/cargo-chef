@@ -2,6 +2,7 @@ name: Build Docker images
 on:
   push:
     branches: [main, master]
+    tags: '*'
   schedule:
     - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
 
