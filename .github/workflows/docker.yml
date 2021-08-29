@@ -81,7 +81,10 @@ jobs:
             echo "There is already a pushed image with ${CHEF_IMAGE_TAG} as tag. Skipping."
             echo ::set-output name=duplicated::true
           else
-            docker build -t $CHEF_IMAGE --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG ./docker
+            docker build -t $CHEF_IMAGE \
+              --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG \
+              --build-arg=CHEF_TAG=rust:$CHEF_PACKAGE_VERSION \
+              ./docker
             docker push $CHEF_IMAGE
             echo ::set-output name=duplicated::false
           fi
