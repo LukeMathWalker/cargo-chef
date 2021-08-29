@@ -73,7 +73,13 @@ jobs:
         run: |
           RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
           CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
-          CHEF_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
+          CHEF_IMAGE_TAG=$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
+          CHEF_IMAGE=$DOCKER_REPO:$CHEF_IMAGE_TAG
+
+          if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $CHEF_IMAGE >/dev/null; then
+              echo "There is already a pushed image with ${CHEF_IMAGE_TAG} as tag"
+              exit 1;
+          fi
 
           docker build -t $CHEF_IMAGE --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG ./docker
           docker push $CHEF_IMAGE
