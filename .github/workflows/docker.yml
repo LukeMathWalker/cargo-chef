@@ -57,9 +57,9 @@ jobs:
         id: package_version
         run: |-
           VER=$(git tag --sort="-v:refname" | head -n 1 | cut -d"v" -f2)
-          echo git tag --sort="-v:refname"
-          echo git tag --sort="-v:refname" | head -n 1
-          echo git tag --sort="-v:refname" | head -n 1 | cut -d"v" -f2
+          echo $(git tag --sort="-v:refname")
+          echo $(git tag --sort="-v:refname" | head -n 1)
+          echo $(git tag --sort="-v:refname" | head -n 1 | cut -d"v" -f2)
           echo $VER
           echo ::set-output name=result::$VER
       -
