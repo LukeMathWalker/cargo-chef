@@ -52,14 +52,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        # Get package version from Cargo.toml
+        # Get package version from git tags
         name: Get package version
         id: package_version
         run: |-
-          VER=$(grep -E '^version = ' Cargo.toml | cut -d' ' -f3 | cut -d'"' -f2)
+          VER=$(git tag --sort="-v:refname" | head -n 1 | cut -d"v" -f2)
           echo ::set-output name=result::$VER
       -
-        # Check if Cargo version matches ^\d+\.\d+\.\d+$
+        # Check if version matches ^\d+\.\d+\.\d+$
         name: Determine if release version
         id: is_release_version
         run: |
