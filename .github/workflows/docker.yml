@@ -1,7 +1,7 @@
 name: Build Docker images
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   schedule:
     - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
 
@@ -52,14 +52,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        # Get package version from Cargo.toml
+        # Get package version from git tags
         name: Get package version
         id: package_version
         run: |-
-          VER=$(grep -E '^version = ' Cargo.toml | cut -d' ' -f3 | cut -d'"' -f2)
+          git fetch --tags
+          VER=$(git tag --sort="-v:refname" | head -n 1 | cut -d"v" -f2)
           echo ::set-output name=result::$VER
       -
-        # Check if Cargo version matches ^\d+\.\d+\.\d+$
+        # Check if version matches ^\d+\.\d+\.\d+$
         name: Determine if release version
         id: is_release_version
         run: |
@@ -68,17 +69,27 @@ jobs:
           fi
       -
         name: Build and push
+        id: build_and_push
+        if: ${{ steps.is_release_version.outputs.result == 'true' }}
         run: |
           RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
           CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
-          CHEF_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
+          CHEF_IMAGE_TAG=$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
+          CHEF_IMAGE=$DOCKER_REPO:$CHEF_IMAGE_TAG
 
-          docker build -t $CHEF_IMAGE --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG ./docker
-          docker push $CHEF_IMAGE
+          if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $CHEF_IMAGE >/dev/null; then
+            echo "There is already a pushed image with ${CHEF_IMAGE_TAG} as tag. Skipping."
+            echo ::set-output name=duplicated::true
+          else
+            docker build -t $CHEF_IMAGE --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG ./docker
+            docker push $CHEF_IMAGE
+            echo ::set-output name=duplicated::false
+          fi
+
       -
         # Latest cargo-chef version for each Rust version
         name: Push `latest-rust-X` tag
-        if: ${{ steps.is_release_version.outputs.result == 'true' }}
+        if: ${{ steps.is_release_version.outputs.result == 'true' && steps.build_and_push.outputs.duplicated == 'false' }}
         run: |
           RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
           CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
@@ -90,7 +101,7 @@ jobs:
       -
         # Latest Rust version, latest cargo-chef version
         name: Push `latest` tag
-        if: ${{ matrix.rust_image_tag == 'latest' && steps.is_release_version.outputs.result == 'true' }}
+        if: ${{ matrix.rust_image_tag == 'latest' && steps.is_release_version.outputs.result == 'true' && steps.build_and_push.outputs.duplicated == 'false' }}
         run: |
           docker tag $DOCKER_REPO:latest-rust-latest $DOCKER_REPO:latest
           docker push $DOCKER_REPO:latest
