@@ -86,22 +86,20 @@ cargo chef cook --release --recipe-path recipe.json
 You can leverage it in a Dockerfile:
 
 ```dockerfile
-FROM lukemathwalker/cargo-chef:latest-rust-1.53.0 AS planner
+FROM lukemathwalker/cargo-chef:latest-rust-1.53.0 AS chef
+
+FROM chef AS planner
 WORKDIR app
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM lukemathwalker/cargo-chef:latest-rust-1.53.0 AS cacher
+FROM chef AS builder 
 WORKDIR app
+# Build dependencies
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
-
-FROM rust:1.53.0 AS builder
-WORKDIR app
+# Build application
 COPY . .
-# Copy over the cached dependencies
-COPY --from=cacher /app/target target
-COPY --from=cacher $CARGO_HOME $CARGO_HOME
 RUN cargo build --release --bin app
 
 # We do not need the Rust toolchain to run the binary!
@@ -134,26 +132,23 @@ You can find [all the available tags on Dockerhub](https://hub.docker.com/r/luke
 If you do not want to use the `lukemathwalker/cargo-chef` image, you can simply install the CLI within the Dockerfile:
 
 ```dockerfile
-FROM rust:1.53.0 AS planner
-WORKDIR app
+FROM rust:1.53.0 AS chef 
 # We only pay the installation cost once, 
 # it will be cached from the second build onwards
 RUN cargo install cargo-chef 
+
+FROM chef AS planner
+WORKDIR app
 COPY . .
 RUN cargo chef prepare  --recipe-path recipe.json
 
-FROM rust:1.53.0 AS cacher
+FROM chef AS builder
 WORKDIR app
-RUN cargo install cargo-chef
+# Build dependencies
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
-
-FROM rust:1.53.0 AS builder
-WORKDIR app
+# Build application
 COPY . .
-# Copy over the cached dependencies
-COPY --from=cacher /app/target target
-COPY --from=cacher $CARGO_HOME $CARGO_HOME
 RUN cargo build --release --bin app
 
 # We do not need the Rust toolchain to run the binary!
@@ -175,16 +170,16 @@ A sample Dockerfile looks like this:
 ```dockerfile
 # Using the `rust-musl-builder` as base image, instead of 
 # the official Rust toolchain
-FROM ekidd/rust-musl-builder:1.51.0 AS builder-chef
+FROM ekidd/rust-musl-builder:1.51.0 AS chef
 USER root
 RUN cargo install cargo-chef
 
-FROM builder-chef AS planner
+FROM chef AS planner
 WORKDIR /app
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM builder-chef AS builder
+FROM chef AS builder
 WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 # Notice that we are specifying the --target flag!
