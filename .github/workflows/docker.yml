@@ -68,6 +68,7 @@ jobs:
           fi
       -
         name: Build and push
+        if: ${{ steps.is_release_version.outputs.result == 'true' }}
         run: |
           RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
           CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
