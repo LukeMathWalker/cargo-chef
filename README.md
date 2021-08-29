@@ -163,6 +163,42 @@ COPY --from=builder /app/target/release/app /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/app"]
 ```
 
+### Running the binary in Alpine
+
+If you want to run your application using the `alpine` distribution you need to create a fully static binary.  
+The recommended approach is to build for the `x86_64-unknown-linux-musl` target using [`rust-musl-builder`](https://github.com/emk/rust-musl-builder).  
+`cargo-chef` works for `x86_64-unknown-linux-musl`, but we are **cross-compiling** - the target
+toolchain must be explicitly specified.
+
+A sample Dockerfile looks like this:
+
+```dockerfile
+# Using the `rust-musl-builder` as base image, instead of 
+# the official Rust toolchain
+FROM ekidd/rust-musl-builder:1.51.0 AS builder-chef
+USER root
+RUN cargo install cargo-chef
+
+FROM builder-chef AS planner
+WORKDIR /app
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM builder-chef AS builder
+WORKDIR /app
+COPY --from=planner /app/recipe.json recipe.json
+# Notice that we are specifying the --target flag!
+RUN cargo chef cook --bin app --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
+COPY . .
+RUN cargo build --release --target x86_64-unknown-linux-musl
+
+FROM alpine AS runtime
+RUN addgroup -S myuser && adduser -S myuser -G myuser
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/app /usr/local/bin/
+USER myuser
+CMD ["/usr/local/bin/app"]
+```
+
 ## Benefits vs Limitations
 
 `cargo-chef` has been tested on a few OpenSource projects and some of commercial projects, but our testing has definitely not exhausted the range of possibilities when it comes to `cargo build` customisations and we are sure that there are a few rough edges that will have to be smoothed out - please file issues on [GitHub](https://github.com/LukeMathWalker/cargo-chef).
