@@ -69,6 +69,7 @@ jobs:
           fi
       -
         name: Build and push
+        id: build_and_push
         if: ${{ steps.is_release_version.outputs.result == 'true' }}
         run: |
           RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
@@ -77,16 +78,18 @@ jobs:
           CHEF_IMAGE=$DOCKER_REPO:$CHEF_IMAGE_TAG
 
           if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $CHEF_IMAGE >/dev/null; then
-              echo "There is already a pushed image with ${CHEF_IMAGE_TAG} as tag"
-              exit 1;
+            echo "There is already a pushed image with ${CHEF_IMAGE_TAG} as tag. Skipping."
+            echo ::set-output name=duplicated::true
+          else
+            docker build -t $CHEF_IMAGE --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG ./docker
+            docker push $CHEF_IMAGE
+            echo ::set-output name=duplicated::false
           fi
 
-          docker build -t $CHEF_IMAGE --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG ./docker
-          docker push $CHEF_IMAGE
       -
         # Latest cargo-chef version for each Rust version
         name: Push `latest-rust-X` tag
-        if: ${{ steps.is_release_version.outputs.result == 'true' }}
+        if: ${{ steps.is_release_version.outputs.result == 'true' && steps.build_and_push.outputs.duplicated == 'false' }}
         run: |
           RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
           CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
@@ -98,7 +101,7 @@ jobs:
       -
         # Latest Rust version, latest cargo-chef version
         name: Push `latest` tag
-        if: ${{ matrix.rust_image_tag == 'latest' && steps.is_release_version.outputs.result == 'true' }}
+        if: ${{ matrix.rust_image_tag == 'latest' && steps.is_release_version.outputs.result == 'true' && steps.build_and_push.outputs.duplicated == 'false' }}
         run: |
           docker tag $DOCKER_REPO:latest-rust-latest $DOCKER_REPO:latest
           docker push $DOCKER_REPO:latest
