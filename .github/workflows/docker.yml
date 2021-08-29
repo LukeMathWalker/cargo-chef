@@ -1,7 +1,7 @@
 name: Build Docker images
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, "fix-docker-publishing"]
   schedule:
     - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
 
