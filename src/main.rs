@@ -29,6 +29,10 @@ pub enum CargoInvocation {
 }
 
 #[derive(Clap)]
+#[clap(
+    version = crate_version!(),
+    author = "Luca Palmieri <rust@lpalmieri.com>"
+)]
 pub enum Command {
     /// Analyze the current project to determine the minimum subset of files (Cargo.lock and
     /// Cargo.toml manifests) required to build it and cache dependencies.
