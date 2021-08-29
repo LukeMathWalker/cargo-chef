@@ -121,7 +121,7 @@ The tagging scheme is `<cargo-chef version>-rust-<rust version>`.
 For example, `0.1.22-rust-1.53.0`.  
 You can choose to get the latest version of either `cargo-chef` or `rust` by using:
 - `latest-rust-1.53.0` (use latest `cargo-chef` with specific Rust version);
-- `0.1.22-rust-latest` (use latest Rust with specific `cargo-chef` version).  
+- `0.1.22-rust-latest` (use latest Rust with specific `cargo-chef` version).
 You can find [all the available tags on Dockerhub](https://hub.docker.com/r/lukemathwalker/cargo-chef).
 
 > :warning:  **You must use the same Rust version in all stages**  
