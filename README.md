@@ -171,14 +171,13 @@ A sample Dockerfile looks like this:
 FROM ekidd/rust-musl-builder:1.51.0 AS chef
 USER root
 RUN cargo install cargo-chef
+WORKDIR /app
 
 FROM chef AS planner
-WORKDIR /app
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
-WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 # Notice that we are specifying the --target flag!
 RUN cargo chef cook --bin app --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
