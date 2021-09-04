@@ -71,7 +71,6 @@ fn mask_local_dependency_versions(
     if let Some(dependencies) = manifest.contents.get_mut(dependency_key) {
         for local_package in local_package_names.iter() {
             if let toml::Value::String(local_package) = local_package {
-                let local_package = local_package.replace("-", "_");
                 if let Some(local_dependency) = dependencies.get_mut(local_package) {
                     if let Some(version) = local_dependency.get_mut("version") {
                         *version = toml::Value::String(CONST_VERSION.to_string());
