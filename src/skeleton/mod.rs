@@ -251,9 +251,12 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
                 // Remove dummy libraries.
                 for lib in &parsed_manifest.lib {
                     let library_name = lib.name.as_ref().unwrap_or(&package.name).replace("-", "_");
-                    let walker = GlobWalkerBuilder::new(
+                    let walker = GlobWalkerBuilder::from_patterns(
                         &target_directory,
-                        format!("/**/lib{}*", library_name),
+                        &[
+                            format!("/**/lib{}.*", library_name),
+                            format!("/**/lib{}-*", library_name),
+                        ],
                     )
                     .build()?;
                     for file in walker {
