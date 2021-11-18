@@ -88,6 +88,7 @@ jobs:
               --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG \
               --build-arg=CHEF_TAG=$CHEF_PACKAGE_VERSION \
               --platform linux/amd64,linux/arm64 \
+              --output type=docker \
               ./docker
             docker push $CHEF_IMAGE
             echo ::set-output name=duplicated::false
