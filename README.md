@@ -86,7 +86,7 @@ cargo chef cook --release --recipe-path recipe.json
 You can leverage it in a Dockerfile:
 
 ```dockerfile
-FROM lukemathwalker/cargo-chef:latest-rust-1.53.0 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.56.0 AS chef
 WORKDIR app
 
 FROM chef AS planner
@@ -116,9 +116,9 @@ As long as your dependencies do not change the `recipe.json` file will stay the 
 We offer `lukemathwalker/cargo-chef` as a pre-built Docker image equipped with both Rust and `cargo-chef`.
 
 The tagging scheme is `<cargo-chef version>-rust-<rust version>`.  
-For example, `0.1.22-rust-1.53.0`.  
+For example, `0.1.22-rust-1.56.0`.  
 You can choose to get the latest version of either `cargo-chef` or `rust` by using:
-- `latest-rust-1.53.0` (use latest `cargo-chef` with specific Rust version);
+- `latest-rust-1.56.0` (use latest `cargo-chef` with specific Rust version);
 - `0.1.22-rust-latest` (use latest Rust with specific `cargo-chef` version).
 You can find [all the available tags on Dockerhub](https://hub.docker.com/r/lukemathwalker/cargo-chef).
 
@@ -131,7 +131,7 @@ You can find [all the available tags on Dockerhub](https://hub.docker.com/r/luke
 If you do not want to use the `lukemathwalker/cargo-chef` image, you can simply install the CLI within the Dockerfile:
 
 ```dockerfile
-FROM rust:1.53.0 AS chef 
+FROM rust:1.56.0 AS chef 
 # We only pay the installation cost once, 
 # it will be cached from the second build onwards
 RUN cargo install cargo-chef 
