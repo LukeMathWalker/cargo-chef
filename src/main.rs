@@ -1,13 +1,13 @@
 use anyhow::Context;
 use chef::{CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::crate_version;
-use clap::Clap;
+use clap::Parser;
 use fs_err as fs;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// Cache the dependencies of your Rust project.
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(
     bin_name = "cargo",
     version = crate_version!(),
@@ -18,7 +18,7 @@ pub struct Cli {
     command: CargoInvocation,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub enum CargoInvocation {
     // All `cargo` subcommands receive their name (e.g. `chef` as the first command).
     // See https://github.com/rust-lang/rustfmt/pull/3569
@@ -28,7 +28,7 @@ pub enum CargoInvocation {
     },
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(
     version = crate_version!(),
     author = "Luca Palmieri <rust@lpalmieri.com>"
@@ -45,7 +45,7 @@ pub enum Command {
     Cook(Cook),
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Prepare {
     /// The filepath used to save the computed recipe.
     ///
@@ -54,7 +54,7 @@ pub struct Prepare {
     recipe_path: PathBuf,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Cook {
     /// The filepath `cook` should be reading the recipe from.
     ///
@@ -77,7 +77,7 @@ pub struct Cook {
     #[clap(long)]
     no_default_features: bool,
     /// Space or comma separated list of features to activate.
-    #[clap(long, use_delimiter = true, value_delimiter = ",")]
+    #[clap(long, value_delimiter = ',')]
     features: Option<Vec<String>>,
     /// Build all benches
     #[clap(long)]
