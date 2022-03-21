@@ -21,10 +21,29 @@ pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, an
     }
 }
 
+fn vendored_directory(config_contents: Option<&str>) -> Option<String> {
+    config_contents
+        .and_then(|contents| toml::Value::try_from(contents).ok())
+        .and_then(|contents| {
+            contents
+                .get("source.crates-io")
+                .map(|value| value.to_owned())
+        })
+        .and_then(|value| value.as_str().map(|s| s.to_owned()))
+}
+
 pub(super) fn manifests<P: AsRef<Path>>(
     base_path: &P,
+    config_contents: Option<&str>,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
-    let walker = GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
+    let vendored_path = vendored_directory(config_contents);
+    let builder = if let Some(path) = vendored_path {
+        let exclude_vendored_sources = "!".to_string() + &path;
+        GlobWalkerBuilder::from_patterns(&base_path, &["/**/Cargo.toml", &exclude_vendored_sources])
+    } else {
+        GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
+    };
+    let walker = builder
         .build()
         .context("Failed to scan the files in the current directory.")?;
 
