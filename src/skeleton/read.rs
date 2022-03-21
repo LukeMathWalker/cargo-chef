@@ -22,14 +22,14 @@ pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, an
 }
 
 fn vendored_directory(config_contents: Option<&str>) -> Option<String> {
-    config_contents
-        .and_then(|contents| toml::Value::try_from(contents).ok())
-        .and_then(|contents| {
-            contents
-                .get("source.crates-io")
-                .map(|value| value.to_owned())
-        })
-        .and_then(|value| value.as_str().map(|s| s.to_owned()))
+    let contents = config_contents.and_then(|contents| contents.parse::<toml::Value>().ok())?;
+    let source = contents.get("source")?;
+    let crates_io = source.get("crates-io")?;
+    let vendored_field_suffix = crates_io
+        .get("replace-with")
+        .and_then(|value| value.as_str())?;
+    let vendored_sources = source.get(vendored_field_suffix)?;
+    Some(vendored_sources.get("directory")?.as_str()?.to_owned())
 }
 
 pub(super) fn manifests<P: AsRef<Path>>(
@@ -59,6 +59,7 @@ pub(super) fn manifests<P: AsRef<Path>>(
                 parsed.complete_from_path(&absolute_path)?;
 
                 let mut intermediate = toml::Value::try_from(parsed)?;
+                println!("{:?}", intermediate);
 
                 // Specifically, toml gives no guarantees to the ordering of the auto binaries
                 // in its results. We will manually sort these to ensure that the output
