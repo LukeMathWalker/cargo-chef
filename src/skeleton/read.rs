@@ -59,7 +59,6 @@ pub(super) fn manifests<P: AsRef<Path>>(
                 parsed.complete_from_path(&absolute_path)?;
 
                 let mut intermediate = toml::Value::try_from(parsed)?;
-                println!("{:?}", intermediate);
 
                 // Specifically, toml gives no guarantees to the ordering of the auto binaries
                 // in its results. We will manually sort these to ensure that the output
