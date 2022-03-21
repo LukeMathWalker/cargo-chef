@@ -31,9 +31,9 @@ impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
     pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
         // Read relevant files from the filesystem
-        let mut manifests = read::manifests(&base_path)?;
-        let mut lock_file = read::lockfile(&base_path)?;
         let config_file = read::config(&base_path)?;
+        let mut manifests = read::manifests(&base_path, config_file.as_deref())?;
+        let mut lock_file = read::lockfile(&base_path)?;
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
 
