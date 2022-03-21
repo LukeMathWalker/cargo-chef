@@ -38,7 +38,7 @@ pub(super) fn manifests<P: AsRef<Path>>(
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
     let vendored_path = vendored_directory(config_contents);
     let builder = if let Some(path) = vendored_path {
-        let exclude_vendored_sources = "!".to_string() + &path;
+        let exclude_vendored_sources = format!("!{}", path);
         GlobWalkerBuilder::from_patterns(&base_path, &["/**/Cargo.toml", &exclude_vendored_sources])
     } else {
         GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
