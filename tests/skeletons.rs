@@ -807,6 +807,91 @@ version = "0.8.0"
     );
 }
 
+#[test]
+pub fn ignore_vendored_directory() {
+    // Arrange
+    let content = r#"
+[package]
+name = "test-dummy"
+version = "1.2.3"
+edition = "2018"
+
+[dependencies]
+rocket = "0.5.0-rc.1"
+    "#;
+    let cargo_config = r#"
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
+    "#;
+
+    let rocket_cargo_toml = r#"[package]
+edition = "2018"
+name = "rocket"
+version = "0.5.0-rc.1"
+authors = ["Sergio Benitez <sb@sergio.bz>"]
+build = "build.rs"
+description = "Web framework with a focus on usability, security, extensibility, and speed.\n"
+homepage = "https://rocket.rs"
+documentation = "https://api.rocket.rs/v0.5-rc/rocket/"
+readme = "../../README.md"
+keywords = ["rocket", "web", "framework", "server"]
+categories = ["web-programming::http-server"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/SergioBenitez/Rocket"
+[package.metadata.docs.rs]
+all-features = true
+[dependencies.rocket_dep]
+version = "0.3.2""#;
+
+    let rocket_dep_cargo_toml = r#"[package]
+edition = "2018"
+name = "rocket_dep"
+version = "0.3.2"
+authors = ["Test author"]
+description = "sample package representing all of rocket's dependencies""#;
+
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(content).unwrap();
+    recipe_directory.child(".cargo").create_dir_all().unwrap();
+    recipe_directory
+        .child(".cargo")
+        .child("config.toml")
+        .write_str(cargo_config)
+        .unwrap();
+    recipe_directory.child("src").create_dir_all().unwrap();
+    recipe_directory
+        .child("src")
+        .child("main.rs")
+        .touch()
+        .unwrap();
+
+    let vendored = recipe_directory.child("vendor");
+    let rocket = vendored.child("rocket");
+    let sample_rocket_dep = vendored.child("rocket_dep");
+    rocket.create_dir_all().unwrap();
+    sample_rocket_dep.create_dir_all().unwrap();
+
+    rocket
+        .child("Cargo.toml")
+        .write_str(rocket_cargo_toml)
+        .unwrap();
+
+    sample_rocket_dep
+        .child("Cargo.toml")
+        .write_str(rocket_dep_cargo_toml)
+        .unwrap();
+
+    // Act
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+}
+
 fn check(actual: &str, expect: Expect) {
     let actual = actual.to_string();
     expect.assert_eq(&actual);
