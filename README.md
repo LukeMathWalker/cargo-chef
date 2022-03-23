@@ -159,7 +159,7 @@ ENTRYPOINT ["/usr/local/bin/app"]
 ### Running the binary in Alpine
 
 If you want to run your application using the `alpine` distribution you need to create a fully static binary.  
-The recommended approach is to build for the `x86_64-unknown-linux-musl` target using [`rust-musl-builder`](https://github.com/clux/muslrust).  
+The recommended approach is to build for the `x86_64-unknown-linux-musl` target using [`muslrust`](https://github.com/clux/muslrust).  
 `cargo-chef` works for `x86_64-unknown-linux-musl`, but we are **cross-compiling** - the target
 toolchain must be explicitly specified.
 
