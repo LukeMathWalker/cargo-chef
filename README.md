@@ -159,7 +159,7 @@ ENTRYPOINT ["/usr/local/bin/app"]
 ### Running the binary in Alpine
 
 If you want to run your application using the `alpine` distribution you need to create a fully static binary.  
-The recommended approach is to build for the `x86_64-unknown-linux-musl` target using [`rust-musl-builder`](https://github.com/emk/rust-musl-builder).  
+The recommended approach is to build for the `x86_64-unknown-linux-musl` target using [`muslrust`](https://github.com/clux/muslrust).  
 `cargo-chef` works for `x86_64-unknown-linux-musl`, but we are **cross-compiling** - the target
 toolchain must be explicitly specified.
 
@@ -168,7 +168,7 @@ A sample Dockerfile looks like this:
 ```dockerfile
 # Using the `rust-musl-builder` as base image, instead of 
 # the official Rust toolchain
-FROM ekidd/rust-musl-builder:1.51.0 AS chef
+FROM eclux/muslrust:stable AS chef
 USER root
 RUN cargo install cargo-chef
 WORKDIR /app
