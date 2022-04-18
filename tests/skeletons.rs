@@ -34,7 +34,7 @@ path = "src/main.rs"
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -53,7 +53,7 @@ path = "src/main.rs"
         .assert(predicate::path::exists());
 
     // Act (no_std)
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), true)
@@ -140,7 +140,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
     project_b.child("src").child("lib.rs").touch().unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -162,7 +162,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
         .assert("");
 
     // Act (no_std)
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), true)
@@ -229,7 +229,7 @@ harness = false
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -277,7 +277,7 @@ name = "foo"
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -290,7 +290,7 @@ name = "foo"
     cook_directory.child("tests").child("foo.rs").assert("");
 
     // Act (no_std)
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), true)
@@ -349,7 +349,7 @@ name = "foo"
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -365,7 +365,7 @@ name = "foo"
         .assert("fn main() {}");
 
     // Act (no_std)
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), true)
@@ -409,14 +409,14 @@ edition = "2018"
     bin_dir.child("f.rs").touch().unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
 
     // What we're testing is that auto-directories come back in the same order.
     // Since it's possible that the directories just happen to come back in the
     // same order randomly, we'll run this a few times to increase the
     // likelihood of triggering the problem if it exists.
     for _ in 0..5 {
-        let skeleton2 = Skeleton::derive(recipe_directory.path()).unwrap();
+        let skeleton2 = Skeleton::derive(recipe_directory.path(), None).unwrap();
         assert_eq!(
             skeleton, skeleton2,
             "Skeletons of equal directories are not equal. Check [[bin]] ordering in manifest?"
@@ -453,7 +453,7 @@ pub fn config_toml() {
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -502,7 +502,7 @@ pub fn version() {
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -555,7 +555,7 @@ version = "1.2.3"
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -671,7 +671,7 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
     project_b.child("src").child("lib.rs").touch().unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -886,7 +886,7 @@ description = "sample package representing all of rocket's dependencies""#;
         .unwrap();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
