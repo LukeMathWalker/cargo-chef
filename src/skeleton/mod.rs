@@ -322,8 +322,8 @@ fn replace_members_with_specific<P: AsRef<Path>>(
     {
         let members = members.as_array_mut().unwrap();
         *members = vec![toml::Value::String(member)];
+        fs::write(top_level_path, toml::to_string(&top_level)?)?;
     }
-    fs::write(top_level_path, toml::to_string(&top_level)?)?;
 
     Ok(())
 }
