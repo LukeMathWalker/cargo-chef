@@ -316,7 +316,7 @@ fn replace_members_with_specific<P: AsRef<Path>>(
     let top_level_path = base_path.as_ref().join("Cargo.toml");
     let contents = fs::read_to_string(&top_level_path)?;
     let mut top_level: toml::Value = toml::from_str(&contents)?;
-    if let Some(members) = top_level.get_mut("members") {
+    if let Some(members) = top_level.get_mut("workspace.members") {
         let members = members.as_array_mut().unwrap();
         *members = vec![toml::Value::String(member)];
     }
