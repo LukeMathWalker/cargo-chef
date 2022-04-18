@@ -29,9 +29,15 @@ pub(in crate::skeleton) struct ParsedManifest {
 
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
-    pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
+    pub fn derive<P: AsRef<Path>>(
+        base_path: P,
+        member: Option<String>,
+    ) -> Result<Self, anyhow::Error> {
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
+        if let Some(member) = member {
+            replace_members_with_specific(&base_path, member)?;
+        }
         let mut manifests = read::manifests(&base_path, config_file.as_deref())?;
         let mut lock_file = read::lockfile(&base_path)?;
 
@@ -299,4 +305,22 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
         });
     }
     Ok(serialised_manifests)
+}
+
+/// If the top-level `Cargo.toml` has a `members` field, replace it with
+/// a list consisting of just the specified member.
+fn replace_members_with_specific<P: AsRef<Path>>(
+    base_path: P,
+    member: String,
+) -> Result<(), anyhow::Error> {
+    let top_level_path = base_path.as_ref().join("Cargo.toml");
+    let contents = fs::read_to_string(&top_level_path)?;
+    let mut top_level: toml::Value = toml::from_str(&contents)?;
+    if let Some(members) = top_level.get_mut("members") {
+        let members = members.as_array_mut().unwrap();
+        *members = vec![toml::Value::String(member)];
+    }
+    fs::write(top_level_path, toml::to_string(&top_level)?)?;
+
+    Ok(())
 }
