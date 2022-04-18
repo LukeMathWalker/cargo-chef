@@ -892,6 +892,49 @@ description = "sample package representing all of rocket's dependencies""#;
     assert_eq!(1, skeleton.manifests.len());
 }
 
+#[test]
+pub fn specify_member_in_workspace() {
+    // Arrange
+    let workspace_content = r#"
+[workspace]
+
+members = [
+    "backend",
+    "ci",
+]
+    "#;
+
+    let first_content = r#"
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2018"
+    "#;
+
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(workspace_content).unwrap();
+    let backend = recipe_directory.child("backend");
+    backend.create_dir_all().unwrap();
+
+    backend
+        .child("Cargo.toml")
+        .write_str(first_content)
+        .unwrap();
+    backend.child("src").create_dir_all().unwrap();
+    backend.child("src").child("main.rs").touch().unwrap();
+
+    // Act
+    let skeleton = Skeleton::derive(recipe_directory.path(), "backend".to_string().into()).unwrap();
+
+    // Assert
+    recipe_directory.child("Cargo.toml").assert(
+        r#"[workspace]
+members = ["backend"]
+"#,
+    );
+}
+
 fn check(actual: &str, expect: Expect) {
     let actual = actual.to_string();
     expect.assert_eq(&actual);
