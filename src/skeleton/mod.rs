@@ -6,7 +6,10 @@ use anyhow::Context;
 use fs_err as fs;
 use globwalk::GlobWalkerBuilder;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct Skeleton {
@@ -36,6 +39,7 @@ impl Skeleton {
         // replace_members_with_specific(&base_path, member)?;
         // }
         let mut manifests = read::manifests(&base_path, config_file.as_deref())?;
+        remove_missing_members(&manifests, &base_path)?;
         let mut lock_file = read::lockfile(&base_path)?;
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
@@ -304,11 +308,14 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
     Ok(serialised_manifests)
 }
 
-/// If the top-level `Cargo.toml` has a `members` field, replace it with
-/// a list consisting of just the specified member.
-fn replace_members_with_specific<P: AsRef<Path>>(
+/// Remove all missing members from the root level `Cargo.toml` if it
+/// represents a workspace.
+///
+/// We judge whether a member is missing or not based on whether we were
+/// able to find its `Cargo.toml` file.
+fn remove_missing_members<P: AsRef<Path>>(
+    manifests: &[ParsedManifest],
     base_path: P,
-    member: String,
 ) -> Result<(), anyhow::Error> {
     let top_level_path = base_path.as_ref().join("Cargo.toml");
     let contents = fs::read_to_string(&top_level_path)?;
@@ -318,7 +325,14 @@ fn replace_members_with_specific<P: AsRef<Path>>(
         .and_then(|workspace| workspace.get_mut("members"))
     {
         let members = members.as_array_mut().unwrap();
-        *members = vec![toml::Value::String(member)];
+        let found_members = manifests
+            .iter()
+            .filter_map(|manifest| manifest.relative_path.parent().map(|path| path.to_owned()))
+            .collect::<HashSet<_>>();
+        members.retain(|member| {
+            let member: PathBuf = member.as_str().unwrap().to_string().into();
+            found_members.contains(member.as_path())
+        });
         fs::write(top_level_path, toml::to_string(&top_level)?)?;
     }
 

@@ -893,7 +893,7 @@ description = "sample package representing all of rocket's dependencies""#;
 }
 
 #[test]
-pub fn specify_member_in_workspace() {
+pub fn missing_member_is_removed_from_workspace() {
     // Arrange
     let workspace_content = r#"
 [workspace]
@@ -927,7 +927,7 @@ edition = "2018"
     // Act
     let _skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
 
-    // Assert
+    // Assert that "ci" is not in `members`
     recipe_directory.child("Cargo.toml").assert(
         r#"[workspace]
 members = ["backend"]
