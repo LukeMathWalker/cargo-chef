@@ -343,7 +343,7 @@ fn remove_missing_members<P: AsRef<Path>>(
             .iter_mut()
             .find(|manifest| manifest.relative_path == root_relative_path)
             .unwrap();
-        root_level.contents = toml::Value::String(new_contents);
+        root_level.contents = top_level;
     }
 
     Ok(())
