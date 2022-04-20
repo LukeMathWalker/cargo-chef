@@ -51,7 +51,7 @@ pub(super) fn manifests<P: AsRef<Path>>(
     for manifest in walker {
         match manifest {
             Ok(manifest) => {
-                let absolute_path = manifest.path().to_path_buf();
+                let absolute_path = manifest.into_path();
                 let contents = fs::read_to_string(&absolute_path)?;
 
                 let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
