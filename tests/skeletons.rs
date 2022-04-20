@@ -927,18 +927,29 @@ edition = "2018"
     // Act
     let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
 
+    let gold = r#"[workspace]
+members = ["backend"]
+"#;
+
     // Assert:
     // - that "ci" is not in `members`
-    recipe_directory.child("Cargo.toml").assert(
-        r#"[workspace]
-members = ["backend"]
-"#,
-    );
+    recipe_directory.child("Cargo.toml").assert(gold);
     // - that "ci" is not in `skeleton`'s manifests
     assert!(skeleton
         .manifests
-        .into_iter()
+        .iter()
         .all(|manifest| !manifest.contents.contains("ci")));
+
+    // assert that we updated the root manifest to have the new contents
+    assert!(
+        skeleton
+            .manifests
+            .iter()
+            .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"))
+            .unwrap()
+            .contents
+            == gold
+    );
 }
 
 fn check(actual: &str, expect: Expect) {
