@@ -925,14 +925,20 @@ edition = "2018"
     backend.child("src").child("main.rs").touch().unwrap();
 
     // Act
-    let _skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
+    let skeleton = dbg!(Skeleton::derive(recipe_directory.path()).unwrap());
 
-    // Assert that "ci" is not in `members`
+    // Assert:
+    // - that "ci" is not in `members`
     recipe_directory.child("Cargo.toml").assert(
         r#"[workspace]
 members = ["backend"]
 "#,
     );
+    // - that "ci" is not in `skeleton`'s manifests
+    assert!(skeleton
+        .manifests
+        .into_iter()
+        .all(|manifest| !manifest.contents.contains("ci")));
 }
 
 fn check(actual: &str, expect: Expect) {
