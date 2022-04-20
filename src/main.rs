@@ -52,13 +52,6 @@ pub struct Prepare {
     /// It defaults to "recipe.json".
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
-
-    /// Optional: the member in the workspace we wish to compile.
-    /// Note that this is useful in scenarios where we don't copy
-    /// the whole workspace over. Cargo will complain that it can't
-    /// find those members, so this replaces all of the members.
-    #[clap(long)]
-    member: Option<String>,
 }
 
 #[derive(Parser)]
@@ -211,12 +204,8 @@ fn _main() -> Result<(), anyhow::Error> {
                 })
                 .context("Failed to cook recipe.")?;
         }
-        Command::Prepare(Prepare {
-            recipe_path,
-            member,
-        }) => {
-            let recipe =
-                Recipe::prepare(current_directory, member).context("Failed to compute recipe")?;
+        Command::Prepare(Prepare { recipe_path }) => {
+            let recipe = Recipe::prepare(current_directory).context("Failed to compute recipe")?;
             let serialized =
                 serde_json::to_string(&recipe).context("Failed to serialize recipe.")?;
             fs::write(recipe_path, serialized).context("Failed to save recipe to 'recipe.json'")?;

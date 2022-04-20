@@ -29,15 +29,12 @@ pub(in crate::skeleton) struct ParsedManifest {
 
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
-    pub fn derive<P: AsRef<Path>>(
-        base_path: P,
-        member: Option<String>,
-    ) -> Result<Self, anyhow::Error> {
+    pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
-        if let Some(member) = member {
-            replace_members_with_specific(&base_path, member)?;
-        }
+        // if let Some(member) = member {
+        // replace_members_with_specific(&base_path, member)?;
+        // }
         let mut manifests = read::manifests(&base_path, config_file.as_deref())?;
         let mut lock_file = read::lockfile(&base_path)?;
 
