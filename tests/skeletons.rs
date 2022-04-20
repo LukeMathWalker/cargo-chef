@@ -927,11 +927,28 @@ edition = "2018"
     // Act
     let skeleton = Skeleton::derive(recipe_directory.path(), "backend".to_string().into()).unwrap();
 
-    // Assert
-    recipe_directory.child("Cargo.toml").assert(
-        r#"[workspace]
+    let gold = r#"[workspace]
 members = ["backend"]
-"#,
+"#;
+
+    // Assert:
+    // - that "ci" is not in `members`
+    recipe_directory.child("Cargo.toml").assert(gold);
+    // - that "ci" is not in `skeleton`'s manifests
+    assert!(skeleton
+        .manifests
+        .iter()
+        .all(|manifest| !manifest.contents.contains("ci")));
+
+    // - that the root manifest matches the file contents
+    assert!(
+        skeleton
+            .manifests
+            .iter()
+            .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"))
+            .unwrap()
+            .contents
+            == gold
     );
 }
 
