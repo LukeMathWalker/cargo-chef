@@ -36,7 +36,7 @@ impl Skeleton {
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
         let mut manifests = read::manifests(&base_path, config_file.as_deref())?;
-        remove_missing_members(&manifests, &base_path)?;
+        remove_missing_members(&mut manifests, &base_path)?;
         let mut lock_file = read::lockfile(&base_path)?;
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
@@ -311,7 +311,7 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
 /// We judge whether a member is missing or not based on whether we were
 /// able to find its `Cargo.toml` file.
 fn remove_missing_members<P: AsRef<Path>>(
-    manifests: &[ParsedManifest],
+    manifests: &mut [ParsedManifest],
     base_path: P,
 ) -> Result<(), anyhow::Error> {
     let top_level_path = base_path.as_ref().join("Cargo.toml");
@@ -326,11 +326,24 @@ fn remove_missing_members<P: AsRef<Path>>(
             .iter()
             .filter_map(|manifest| manifest.relative_path.parent().map(|path| path.to_owned()))
             .collect::<HashSet<_>>();
+        let original_len = members.len();
         members.retain(|member| {
             let member: PathBuf = member.as_str().unwrap().to_string().into();
             found_members.contains(member.as_path())
         });
-        fs::write(top_level_path, toml::to_string(&top_level)?)?;
+        if members.len() == original_len {
+            return Ok(());
+        }
+        let new_contents = toml::to_string(&top_level)?;
+        fs::write(top_level_path, &new_contents)?;
+
+        // replace root-level manifest's contents as well
+        let root_relative_path: PathBuf = PathBuf::from("Cargo.toml");
+        let root_level = manifests
+            .iter_mut()
+            .find(|manifest| &manifest.relative_path == &root_relative_path)
+            .unwrap();
+        root_level.contents = toml::Value::String(new_contents);
     }
 
     Ok(())

@@ -925,7 +925,7 @@ edition = "2018"
     backend.child("src").child("main.rs").touch().unwrap();
 
     // Act
-    let skeleton = dbg!(Skeleton::derive(recipe_directory.path()).unwrap());
+    let skeleton = Skeleton::derive(recipe_directory.path()).unwrap();
 
     // Assert:
     // - that "ci" is not in `members`
