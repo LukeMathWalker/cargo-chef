@@ -341,7 +341,7 @@ fn remove_missing_members<P: AsRef<Path>>(
         let root_relative_path: PathBuf = PathBuf::from("Cargo.toml");
         let root_level = manifests
             .iter_mut()
-            .find(|manifest| &manifest.relative_path == &root_relative_path)
+            .find(|manifest| manifest.relative_path == root_relative_path)
             .unwrap();
         root_level.contents = toml::Value::String(new_contents);
     }
