@@ -58,7 +58,7 @@ pub struct Prepare {
     /// the whole workspace over. Cargo will complain that it can't
     /// find those members, so this replaces all of the members.
     #[clap(long)]
-    member: Option<String>,
+    bin: Option<String>,
 }
 
 #[derive(Parser)]
@@ -114,6 +114,12 @@ pub struct Cook {
     /// Cook using `#[no_std]` configuration  (does not affect `proc-macro` crates)
     #[clap(long)]
     no_std: bool,
+    /// Optional: the member in the workspace we wish to compile.
+    /// Note that this is useful in scenarios where we don't copy
+    /// the whole workspace over. Cargo will complain that it can't
+    /// find those members, so this replaces all of the members.
+    #[clap(long)]
+    bin: Option<String>,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -143,6 +149,7 @@ fn _main() -> Result<(), anyhow::Error> {
             workspace,
             offline,
             no_std,
+            bin: _bin,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -211,12 +218,9 @@ fn _main() -> Result<(), anyhow::Error> {
                 })
                 .context("Failed to cook recipe.")?;
         }
-        Command::Prepare(Prepare {
-            recipe_path,
-            member,
-        }) => {
+        Command::Prepare(Prepare { recipe_path, bin }) => {
             let recipe =
-                Recipe::prepare(current_directory, member).context("Failed to compute recipe")?;
+                Recipe::prepare(current_directory, bin).context("Failed to compute recipe")?;
             let serialized =
                 serde_json::to_string(&recipe).context("Failed to serialize recipe.")?;
             fs::write(recipe_path, serialized).context("Failed to save recipe to 'recipe.json'")?;
