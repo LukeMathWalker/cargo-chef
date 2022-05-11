@@ -242,6 +242,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
         let target_directory = match profile {
             OptimisationProfile::Release => target_dir.join("release"),
             OptimisationProfile::Debug => target_dir.join("debug"),
+            OptimisationProfile::Other(custom_profile) => target_dir.join(custom_profile),
         };
 
         for manifest in &self.manifests {

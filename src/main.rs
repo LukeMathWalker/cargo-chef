@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use chef::{CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::crate_version;
 use clap::Parser;
@@ -61,6 +61,9 @@ pub struct Cook {
     /// It defaults to "recipe.json".
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
+    /// Build artifacts with the specified profile.
+    #[clap(long)]
+    profile: Option<String>,
     /// Build in release mode.
     #[clap(long)]
     release: bool,
@@ -121,6 +124,7 @@ fn _main() -> Result<(), anyhow::Error> {
     match command {
         Command::Cook(Cook {
             recipe_path,
+            profile,
             release,
             check,
             target,
@@ -165,10 +169,11 @@ fn _main() -> Result<(), anyhow::Error> {
                 }
             });
 
-            let profile = if release {
-                OptimisationProfile::Release
-            } else {
-                OptimisationProfile::Debug
+            let profile = match (release, profile) {
+                (false, None) =>  OptimisationProfile::Debug,
+                (true, None) => OptimisationProfile::Release,
+                (false, Some(custom_profile)) => OptimisationProfile::Other(custom_profile),
+                (true, Some(_)) => Err(anyhow!("You specified both --release and --profile arguments. Please remove one of them, or both"))?
             };
 
             let default_features = if no_default_features {
