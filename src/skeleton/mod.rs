@@ -37,7 +37,7 @@ impl Skeleton {
         let config_file = read::config(&base_path)?;
         let mut manifests = read::manifests(&base_path, config_file.as_deref())?;
         if let Some(member) = member {
-            ignore_all_members_except(&mut manifests, member)?;
+            ignore_all_members_except(&mut manifests, member);
         }
 
         let mut lock_file = read::lockfile(&base_path)?;
@@ -310,10 +310,7 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
 
 /// If the top-level `Cargo.toml` has a `members` field, replace it with
 /// a list consisting of just the specified member.
-fn ignore_all_members_except(
-    manifests: &mut [ParsedManifest],
-    member: String,
-) -> Result<(), anyhow::Error> {
+fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
     let workspace_toml = manifests
         .iter_mut()
         .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"));
@@ -322,11 +319,6 @@ fn ignore_all_members_except(
         .and_then(|toml| toml.contents.get_mut("workspace"))
         .and_then(|workspace| workspace.get_mut("members"))
     {
-        let members = members.as_array_mut().ok_or_else(|| {
-            anyhow::anyhow!("Could not remove uneccessary members from workspace Cargo.toml")
-        })?;
-        *members = vec![toml::Value::String(member)];
+        *members = toml::Value::Array(vec![toml::Value::String(member)]);
     }
-
-    Ok(())
 }
