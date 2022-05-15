@@ -322,7 +322,9 @@ fn ignore_all_members_except(
         .and_then(|toml| toml.contents.get_mut("workspace"))
         .and_then(|workspace| workspace.get_mut("members"))
     {
-        let members = members.as_array_mut().unwrap();
+        let members = members.as_array_mut().ok_or_else(|| {
+            anyhow::anyhow!("Could not remove uneccessary members from workspace Cargo.toml")
+        })?;
         *members = vec![toml::Value::String(member)];
     }
 
