@@ -932,8 +932,6 @@ members = ["backend"]
 "#;
 
     // Assert:
-    // - that "ci" is not in `members`
-    recipe_directory.child("Cargo.toml").assert(gold);
     // - that "ci" is not in `skeleton`'s manifests
     assert!(skeleton
         .manifests
