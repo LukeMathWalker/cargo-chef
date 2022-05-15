@@ -53,10 +53,8 @@ pub struct Prepare {
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
 
-    /// Optional: the name of the binary we wish to compile.
-    /// Note that this is useful in scenarios where we don't copy
-    /// the whole workspace over. Cargo will complain that it can't
-    /// find those members, so this replaces all of the members.
+    /// When --bin is specified, `cargo-chef` will ignore all members of the workspace
+    /// that are not necessary to successfully compile the specific binary.
     #[clap(long)]
     bin: Option<String>,
 }
