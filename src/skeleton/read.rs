@@ -70,12 +70,12 @@ pub(super) fn manifests<P: AsRef<Path>>(
                     bins.sort_by(|bin_a, bin_b| {
                         let bin_a_path = bin_a
                             .as_table()
-                            .and_then(|table| table.get("path"))
+                            .and_then(|table| table.get("path").or_else(|| table.get("name")))
                             .and_then(|path| path.as_str())
                             .unwrap();
                         let bin_b_path = bin_b
                             .as_table()
-                            .and_then(|table| table.get("path"))
+                            .and_then(|table| table.get("path").or_else(|| table.get("name")))
                             .and_then(|path| path.as_str())
                             .unwrap();
                         bin_a_path.cmp(bin_b_path)
