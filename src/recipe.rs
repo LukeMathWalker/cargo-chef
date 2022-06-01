@@ -33,8 +33,8 @@ pub struct CookArgs {
 }
 
 impl Recipe {
-    pub fn prepare(base_path: PathBuf) -> Result<Self, anyhow::Error> {
-        let skeleton = Skeleton::derive(&base_path)?;
+    pub fn prepare(base_path: PathBuf, enable_local_crate_version_masking: bool) -> Result<Self, anyhow::Error> {
+        let skeleton = Skeleton::derive(&base_path, enable_local_crate_version_masking)?;
         Ok(Recipe { skeleton })
     }
 

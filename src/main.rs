@@ -52,6 +52,11 @@ pub struct Prepare {
     /// It defaults to "recipe.json".
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
+
+    /// Disables masking local crate versions in the recipe. You can try this
+    /// flag if some of your local dependencies don't resolve.
+    #[clap(long)]
+    dont_mask_local_crate_versions: bool,
 }
 
 #[derive(Parser)]
@@ -204,8 +209,8 @@ fn _main() -> Result<(), anyhow::Error> {
                 })
                 .context("Failed to cook recipe.")?;
         }
-        Command::Prepare(Prepare { recipe_path }) => {
-            let recipe = Recipe::prepare(current_directory).context("Failed to compute recipe")?;
+        Command::Prepare(Prepare { recipe_path, dont_mask_local_crate_versions }) => {
+            let recipe = Recipe::prepare(current_directory, !dont_mask_local_crate_versions).context("Failed to compute recipe")?;
             let serialized =
                 serde_json::to_string(&recipe).context("Failed to serialize recipe.")?;
             fs::write(recipe_path, serialized).context("Failed to save recipe to 'recipe.json'")?;
