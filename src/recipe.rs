@@ -55,10 +55,11 @@ impl Recipe {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum OptimisationProfile {
     Release,
     Debug,
+    Other(String),
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -90,6 +91,8 @@ fn build_dependencies(args: &CookArgs) {
     };
     if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");
+    } else if let OptimisationProfile::Other(custom_profile) = profile {
+        command_with_args.arg("--profile").arg(custom_profile);
     }
     if default_features == &DefaultFeatures::Disabled {
         command_with_args.arg("--no-default-features");
