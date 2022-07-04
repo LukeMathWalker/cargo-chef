@@ -102,7 +102,10 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             // Create dummy entrypoint files for all binaries
             for bin in &parsed_manifest.bin.unwrap_or_default() {
                 // Relative to the manifest path
-                let binary_relative_path = bin.path.as_deref().unwrap_or("src/main.rs");
+                let binary_relative_path = bin.path.to_owned().unwrap_or_else(|| match &bin.name {
+                    Some(name) => format!("src/bin/{}.rs", name),
+                    None => "src/main.rs".to_owned(),
+                });
                 let binary_path = parent_directory.join(binary_relative_path);
                 if let Some(parent_directory) = binary_path.parent() {
                     fs::create_dir_all(parent_directory)?;
