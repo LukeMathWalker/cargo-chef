@@ -82,6 +82,9 @@ pub struct Cook {
     /// Space or comma separated list of features to activate.
     #[clap(long, value_delimiter = ',')]
     features: Option<Vec<String>>,
+    /// Unstable feature to activate (only available on the nightly channel).
+    #[clap(short = 'Z')]
+    unstable_features: Option<Vec<String>>,
     /// Build all benches
     #[clap(long)]
     benches: bool,
@@ -130,6 +133,7 @@ fn _main() -> Result<(), anyhow::Error> {
             target,
             no_default_features,
             features,
+            unstable_features,
             target_dir,
             benches,
             tests,
@@ -169,6 +173,14 @@ fn _main() -> Result<(), anyhow::Error> {
                 }
             });
 
+            let unstable_features: Option<HashSet<String>> = unstable_features.and_then(|unstable_features| {
+                if unstable_features.is_empty() {
+                    None
+                } else {
+                    Some(unstable_features.into_iter().collect())
+                }
+            });
+
             let profile = match (release, profile) {
                 (false, None) =>  OptimisationProfile::Debug,
                 (true, None) => OptimisationProfile::Release,
@@ -198,6 +210,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     check,
                     default_features,
                     features,
+                    unstable_features,
                     target,
                     target_dir,
                     target_args,
