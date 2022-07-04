@@ -22,6 +22,7 @@ pub struct CookArgs {
     pub check: bool,
     pub default_features: DefaultFeatures,
     pub features: Option<HashSet<String>>,
+    pub unstable_features: Option<HashSet<String>>,
     pub target: Option<String>,
     pub target_dir: Option<PathBuf>,
     pub target_args: TargetArgs,
@@ -74,6 +75,7 @@ fn build_dependencies(args: &CookArgs) {
         check,
         default_features,
         features,
+        unstable_features,
         target,
         target_dir,
         target_args,
@@ -101,6 +103,11 @@ fn build_dependencies(args: &CookArgs) {
     if let Some(features) = features {
         let feature_flag = features.iter().cloned().collect::<Vec<String>>().join(",");
         command_with_args.arg("--features").arg(feature_flag);
+    }
+    if let Some(unstable_features) = unstable_features {
+        for unstable_feature in unstable_features.iter().cloned() {
+            command_with_args.arg("-Z").arg(unstable_feature);
+        }
     }
     if let Some(target) = target {
         command_with_args.arg("--target").arg(target);
