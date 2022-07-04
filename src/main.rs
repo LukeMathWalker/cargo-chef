@@ -173,13 +173,14 @@ fn _main() -> Result<(), anyhow::Error> {
                 }
             });
 
-            let unstable_features: Option<HashSet<String>> = unstable_features.and_then(|unstable_features| {
-                if unstable_features.is_empty() {
-                    None
-                } else {
-                    Some(unstable_features.into_iter().collect())
-                }
-            });
+            let unstable_features: Option<HashSet<String>> =
+                unstable_features.and_then(|unstable_features| {
+                    if unstable_features.is_empty() {
+                        None
+                    } else {
+                        Some(unstable_features.into_iter().collect())
+                    }
+                });
 
             let profile = match (release, profile) {
                 (false, None) =>  OptimisationProfile::Debug,
