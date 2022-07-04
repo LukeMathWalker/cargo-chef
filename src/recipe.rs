@@ -83,7 +83,8 @@ fn build_dependencies(args: &CookArgs) {
         offline,
         ..
     } = args;
-    let mut command = Command::new("cargo");
+    let cargo_path = std::env::var("CARGO").expect("The `CARGO` environment variable was not set. This is unexpected: it should always be provided by `cargo` when invoking a custom sub-command, allowing `cargo-chef` to correctly detect which toolchain should be used. Please file a bug.");
+    let mut command = Command::new(cargo_path);
     let command_with_args = if *check {
         command.arg("check")
     } else {

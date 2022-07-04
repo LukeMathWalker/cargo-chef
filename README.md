@@ -83,7 +83,13 @@ If you want to build in `--release` mode:
 cargo chef cook --release --recipe-path recipe.json
 ```
 
-You can leverage it in a Dockerfile:
+You can also choose to override which Rust toolchain should be used. E.g., to force the `nightly` toolchain:
+
+```bash
+cargo +nightly chef cook --recipe-path recipe.json
+```
+
+`cargo-chef` is designed to be leveraged in Dockerfiles:
 
 ```dockerfile
 FROM lukemathwalker/cargo-chef:latest-rust-1.56.0 AS chef
