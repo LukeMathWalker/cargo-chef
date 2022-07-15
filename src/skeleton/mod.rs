@@ -99,12 +99,15 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
 
+            let package_name = parsed_manifest.package.as_ref().map(|v| &v.name);
             // Create dummy entrypoint files for all binaries
             for bin in &parsed_manifest.bin.unwrap_or_default() {
                 // Relative to the manifest path
                 let binary_relative_path = bin.path.to_owned().unwrap_or_else(|| match &bin.name {
-                    Some(name) => format!("src/bin/{}.rs", name),
-                    None => "src/main.rs".to_owned(),
+                    Some(name) if Some(name) != package_name => {
+                        format!("src/bin/{}.rs", name)
+                    }
+                    _ => "src/main.rs".to_owned(),
                 });
                 let binary_path = parent_directory.join(binary_relative_path);
                 if let Some(parent_directory) = binary_path.parent() {
