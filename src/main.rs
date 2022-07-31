@@ -145,7 +145,7 @@ fn _main() -> Result<(), anyhow::Error> {
             workspace,
             offline,
             no_std,
-            bin: _bin,
+            bin,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -211,6 +211,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     workspace,
                     offline,
                     no_std,
+                    bin,
                 })
                 .context("Failed to cook recipe.")?;
         }

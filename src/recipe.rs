@@ -30,6 +30,7 @@ pub struct CookArgs {
     pub workspace: bool,
     pub offline: bool,
     pub no_std: bool,
+    pub bin: Option<String>,
 }
 
 impl Recipe {
@@ -80,7 +81,8 @@ fn build_dependencies(args: &CookArgs) {
         package,
         workspace,
         offline,
-        ..
+        bin,
+        no_std: _no_std,
     } = args;
     let mut command = Command::new("cargo");
     let command_with_args = if *check {
@@ -121,6 +123,9 @@ fn build_dependencies(args: &CookArgs) {
     }
     if let Some(package) = package {
         command_with_args.arg("--package").arg(package);
+    }
+    if let Some(binary_target) = bin {
+        command_with_args.arg("--bin").arg(binary_target);
     }
     if *workspace {
         command_with_args.arg("--workspace");
