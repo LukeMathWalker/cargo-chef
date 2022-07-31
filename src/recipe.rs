@@ -22,6 +22,7 @@ pub struct CookArgs {
     pub check: bool,
     pub default_features: DefaultFeatures,
     pub features: Option<HashSet<String>>,
+    pub unstable_features: Option<HashSet<String>>,
     pub target: Option<String>,
     pub target_dir: Option<PathBuf>,
     pub target_args: TargetArgs,
@@ -56,10 +57,11 @@ impl Recipe {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum OptimisationProfile {
     Release,
     Debug,
+    Other(String),
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -74,6 +76,7 @@ fn build_dependencies(args: &CookArgs) {
         check,
         default_features,
         features,
+        unstable_features,
         target,
         target_dir,
         target_args,
@@ -84,7 +87,8 @@ fn build_dependencies(args: &CookArgs) {
         bin,
         no_std: _no_std,
     } = args;
-    let mut command = Command::new("cargo");
+    let cargo_path = std::env::var("CARGO").expect("The `CARGO` environment variable was not set. This is unexpected: it should always be provided by `cargo` when invoking a custom sub-command, allowing `cargo-chef` to correctly detect which toolchain should be used. Please file a bug.");
+    let mut command = Command::new(cargo_path);
     let command_with_args = if *check {
         command.arg("check")
     } else {
@@ -92,6 +96,8 @@ fn build_dependencies(args: &CookArgs) {
     };
     if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");
+    } else if let OptimisationProfile::Other(custom_profile) = profile {
+        command_with_args.arg("--profile").arg(custom_profile);
     }
     if default_features == &DefaultFeatures::Disabled {
         command_with_args.arg("--no-default-features");
@@ -99,6 +105,11 @@ fn build_dependencies(args: &CookArgs) {
     if let Some(features) = features {
         let feature_flag = features.iter().cloned().collect::<Vec<String>>().join(",");
         command_with_args.arg("--features").arg(feature_flag);
+    }
+    if let Some(unstable_features) = unstable_features {
+        for unstable_feature in unstable_features.iter().cloned() {
+            command_with_args.arg("-Z").arg(unstable_feature);
+        }
     }
     if let Some(target) = target {
         command_with_args.arg("--target").arg(target);

@@ -106,10 +106,16 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
 
+            let package_name = parsed_manifest.package.as_ref().map(|v| &v.name);
             // Create dummy entrypoint files for all binaries
             for bin in &parsed_manifest.bin.unwrap_or_default() {
                 // Relative to the manifest path
-                let binary_relative_path = bin.path.as_deref().unwrap_or("src/main.rs");
+                let binary_relative_path = bin.path.to_owned().unwrap_or_else(|| match &bin.name {
+                    Some(name) if Some(name) != package_name => {
+                        format!("src/bin/{}.rs", name)
+                    }
+                    _ => "src/main.rs".to_owned(),
+                });
                 let binary_path = parent_directory.join(binary_relative_path);
                 if let Some(parent_directory) = binary_path.parent() {
                     fs::create_dir_all(parent_directory)?;
@@ -249,6 +255,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
         let target_directory = match profile {
             OptimisationProfile::Release => target_dir.join("release"),
             OptimisationProfile::Debug => target_dir.join("debug"),
+            OptimisationProfile::Other(custom_profile) => target_dir.join(custom_profile),
         };
 
         for manifest in &self.manifests {

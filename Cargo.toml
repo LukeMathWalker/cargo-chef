@@ -1,6 +1,6 @@
 [package]
 name = "cargo-chef"
-version = "0.1.35"
+version = "0.1.38"
 authors = ["Luca Palmieri <lpalmieri@truelayer.com>"]
 edition = "2018"
 description = "A cargo sub-command to build project dependencies for optimal Docker layer caching."
@@ -29,7 +29,7 @@ env_logger = "0.8.1"
 globwalk = "0.8.0"
 anyhow = "1.0.33"
 pathdiff = "0.2.0"
-cargo-manifest = "0.2.6"
+cargo-manifest = "0.2.7"
 fs-err = "2.5.0"
 toml = { version = "0.5.7", features = ["preserve_order"] }
 expect-test = "1.1.0"

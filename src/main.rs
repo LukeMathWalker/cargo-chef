@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use chef::{CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::crate_version;
 use clap::Parser;
@@ -66,6 +66,9 @@ pub struct Cook {
     /// It defaults to "recipe.json".
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
+    /// Build artifacts with the specified profile.
+    #[clap(long)]
+    profile: Option<String>,
     /// Build in release mode.
     #[clap(long)]
     release: bool,
@@ -84,6 +87,9 @@ pub struct Cook {
     /// Space or comma separated list of features to activate.
     #[clap(long, value_delimiter = ',')]
     features: Option<Vec<String>>,
+    /// Unstable feature to activate (only available on the nightly channel).
+    #[clap(short = 'Z')]
+    unstable_features: Option<Vec<String>>,
     /// Build all benches
     #[clap(long)]
     benches: bool,
@@ -130,11 +136,13 @@ fn _main() -> Result<(), anyhow::Error> {
     match command {
         Command::Cook(Cook {
             recipe_path,
+            profile,
             release,
             check,
             target,
             no_default_features,
             features,
+            unstable_features,
             target_dir,
             benches,
             tests,
@@ -175,10 +183,20 @@ fn _main() -> Result<(), anyhow::Error> {
                 }
             });
 
-            let profile = if release {
-                OptimisationProfile::Release
-            } else {
-                OptimisationProfile::Debug
+            let unstable_features: Option<HashSet<String>> =
+                unstable_features.and_then(|unstable_features| {
+                    if unstable_features.is_empty() {
+                        None
+                    } else {
+                        Some(unstable_features.into_iter().collect())
+                    }
+                });
+
+            let profile = match (release, profile) {
+                (false, None) =>  OptimisationProfile::Debug,
+                (true, None) => OptimisationProfile::Release,
+                (false, Some(custom_profile)) => OptimisationProfile::Other(custom_profile),
+                (true, Some(_)) => Err(anyhow!("You specified both --release and --profile arguments. Please remove one of them, or both"))?
             };
 
             let default_features = if no_default_features {
@@ -203,6 +221,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     check,
                     default_features,
                     features,
+                    unstable_features,
                     target,
                     target_dir,
                     target_args,
