@@ -31,11 +31,12 @@ pub struct CookArgs {
     pub workspace: bool,
     pub offline: bool,
     pub no_std: bool,
+    pub bin: Option<String>,
 }
 
 impl Recipe {
-    pub fn prepare(base_path: PathBuf) -> Result<Self, anyhow::Error> {
-        let skeleton = Skeleton::derive(&base_path)?;
+    pub fn prepare(base_path: PathBuf, member: Option<String>) -> Result<Self, anyhow::Error> {
+        let skeleton = Skeleton::derive(&base_path, member)?;
         Ok(Recipe { skeleton })
     }
 
@@ -83,7 +84,8 @@ fn build_dependencies(args: &CookArgs) {
         package,
         workspace,
         offline,
-        ..
+        bin,
+        no_std: _no_std,
     } = args;
     let cargo_path = std::env::var("CARGO").expect("The `CARGO` environment variable was not set. This is unexpected: it should always be provided by `cargo` when invoking a custom sub-command, allowing `cargo-chef` to correctly detect which toolchain should be used. Please file a bug.");
     let mut command = Command::new(cargo_path);
@@ -132,6 +134,9 @@ fn build_dependencies(args: &CookArgs) {
     }
     if let Some(package) = package {
         command_with_args.arg("--package").arg(package);
+    }
+    if let Some(binary_target) = bin {
+        command_with_args.arg("--bin").arg(binary_target);
     }
     if *workspace {
         command_with_args.arg("--workspace");

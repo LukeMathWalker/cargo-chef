@@ -29,10 +29,17 @@ pub(in crate::skeleton) struct ParsedManifest {
 
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
-    pub fn derive<P: AsRef<Path>>(base_path: P) -> Result<Self, anyhow::Error> {
+    pub fn derive<P: AsRef<Path>>(
+        base_path: P,
+        member: Option<String>,
+    ) -> Result<Self, anyhow::Error> {
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
         let mut manifests = read::manifests(&base_path, config_file.as_deref())?;
+        if let Some(member) = member {
+            ignore_all_members_except(&mut manifests, member);
+        }
+
         let mut lock_file = read::lockfile(&base_path)?;
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
@@ -306,4 +313,19 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
         });
     }
     Ok(serialised_manifests)
+}
+
+/// If the top-level `Cargo.toml` has a `members` field, replace it with
+/// a list consisting of just the specified member.
+fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
+    let workspace_toml = manifests
+        .iter_mut()
+        .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"));
+
+    if let Some(members) = workspace_toml
+        .and_then(|toml| toml.contents.get_mut("workspace"))
+        .and_then(|workspace| workspace.get_mut("members"))
+    {
+        *members = toml::Value::Array(vec![toml::Value::String(member)]);
+    }
 }

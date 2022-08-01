@@ -52,6 +52,11 @@ pub struct Prepare {
     /// It defaults to "recipe.json".
     #[clap(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
+
+    /// When --bin is specified, `cargo-chef` will ignore all members of the workspace
+    /// that are not necessary to successfully compile the specific binary.
+    #[clap(long)]
+    bin: Option<String>,
 }
 
 #[derive(Parser)]
@@ -113,6 +118,10 @@ pub struct Cook {
     /// Cook using `#[no_std]` configuration  (does not affect `proc-macro` crates)
     #[clap(long)]
     no_std: bool,
+    /// When --bin is specified, `cargo-chef` will ignore all members of the workspace
+    /// that are not necessary to successfully compile the specific binary.
+    #[clap(long)]
+    bin: Option<String>,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -144,6 +153,7 @@ fn _main() -> Result<(), anyhow::Error> {
             workspace,
             offline,
             no_std,
+            bin,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -220,11 +230,13 @@ fn _main() -> Result<(), anyhow::Error> {
                     workspace,
                     offline,
                     no_std,
+                    bin,
                 })
                 .context("Failed to cook recipe.")?;
         }
-        Command::Prepare(Prepare { recipe_path }) => {
-            let recipe = Recipe::prepare(current_directory).context("Failed to compute recipe")?;
+        Command::Prepare(Prepare { recipe_path, bin }) => {
+            let recipe =
+                Recipe::prepare(current_directory, bin).context("Failed to compute recipe")?;
             let serialized =
                 serde_json::to_string(&recipe).context("Failed to serialize recipe.")?;
             fs::write(recipe_path, serialized).context("Failed to save recipe to 'recipe.json'")?;
