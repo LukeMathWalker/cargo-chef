@@ -758,7 +758,6 @@ version = "0.8.0"
             [dependencies.uuid]
             version = "=0.8.0"
             features = ["v4"]
-            optional = false
         "#]],
     );
     let third = skeleton.manifests[2].clone();
@@ -785,13 +784,10 @@ version = "0.8.0"
             [dependencies.project_a]
             version = "0.0.1"
             path = "../project_a"
-            features = []
-            optional = false
 
             [dependencies.uuid]
             version = "=0.8.0"
             features = ["v4"]
-            optional = false
 
             [lib]
             test = true
