@@ -57,25 +57,38 @@ fn mask_local_versions_in_manifests(
                 *version = toml::Value::String(CONST_VERSION.to_string());
             }
         }
-        mask_local_dependency_versions(local_package_names, manifest, "dependencies");
-        mask_local_dependency_versions(local_package_names, manifest, "dev-dependencies");
-        mask_local_dependency_versions(local_package_names, manifest, "build-dependencies");
+        mask_local_dependency_versions(local_package_names, manifest);
+    }
+}
+
+fn mask_dependencies_in_value(
+    local_package_names: &[toml::Value],
+    toml_value: &mut toml::Value,
+) {
+    for dependency_key in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        if let Some(dependencies) = toml_value.get_mut(dependency_key) {
+            for local_package in local_package_names.iter() {
+                if let toml::Value::String(local_package) = local_package {
+                    if let Some(local_dependency) = dependencies.get_mut(local_package) {
+                        if let Some(version) = local_dependency.get_mut("version") {
+                            *version = toml::Value::String(CONST_VERSION.to_string());
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
 fn mask_local_dependency_versions(
     local_package_names: &[toml::Value],
     manifest: &mut ParsedManifest,
-    dependency_key: &str,
 ) {
-    if let Some(dependencies) = manifest.contents.get_mut(dependency_key) {
-        for local_package in local_package_names.iter() {
-            if let toml::Value::String(local_package) = local_package {
-                if let Some(local_dependency) = dependencies.get_mut(local_package) {
-                    if let Some(version) = local_dependency.get_mut("version") {
-                        *version = toml::Value::String(CONST_VERSION.to_string());
-                    }
-                }
+    mask_dependencies_in_value(local_package_names, &mut manifest.contents);
+    if let Some(targets) = manifest.contents.get_mut("target") {
+        if let Some(target_table) = targets.as_table_mut() {
+            for (_, mut target_config) in target_table.iter_mut() {
+                mask_dependencies_in_value(local_package_names, &mut target_config)
             }
         }
     }
