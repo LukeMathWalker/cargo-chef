@@ -747,14 +747,10 @@ version = "0.8.0"
             name = "project-a"
             edition = "2018"
             version = "0.0.1"
-            authors = []
-            keywords = []
-            categories = []
             autobins = true
             autoexamples = true
             autotests = true
             autobenches = true
-            publish = true
             [dependencies.uuid]
             version = "=0.8.0"
             features = ["v4"]
@@ -773,14 +769,10 @@ version = "0.8.0"
             name = "project_b"
             edition = "2018"
             version = "0.0.1"
-            authors = []
-            keywords = []
-            categories = []
             autobins = true
             autoexamples = true
             autotests = true
             autobenches = true
-            publish = true
             [dependencies.project_a]
             version = "0.0.1"
             path = "../project_a"
