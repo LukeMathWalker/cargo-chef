@@ -61,31 +61,46 @@ fn mask_local_versions_in_manifests(
     }
 }
 
-fn mask_dependencies_in_value(local_package_names: &[toml::Value], toml_value: &mut toml::Value) {
-    for dependency_key in ["dependencies", "dev-dependencies", "build-dependencies"] {
-        if let Some(dependencies) = toml_value.get_mut(dependency_key) {
-            for local_package in local_package_names.iter() {
-                if let toml::Value::String(local_package) = local_package {
-                    if let Some(local_dependency) = dependencies.get_mut(local_package) {
-                        if let Some(version) = local_dependency.get_mut("version") {
-                            *version = toml::Value::String(CONST_VERSION.to_string());
+fn mask_local_dependency_versions(
+    local_package_names: &[toml::Value],
+    manifest: &mut ParsedManifest,
+) {
+    fn _mask(local_package_names: &[toml::Value], toml_value: &mut toml::Value) {
+        for dependency_key in ["dependencies", "dev-dependencies", "build-dependencies"] {
+            if let Some(dependencies) = toml_value.get_mut(dependency_key) {
+                for local_package in local_package_names.iter() {
+                    if let toml::Value::String(local_package) = local_package {
+                        if let Some(local_dependency) = dependencies.get_mut(local_package) {
+                            if let Some(version) = local_dependency.get_mut("version") {
+                                *version = toml::Value::String(CONST_VERSION.to_string());
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
 
-fn mask_local_dependency_versions(
-    local_package_names: &[toml::Value],
-    manifest: &mut ParsedManifest,
-) {
-    mask_dependencies_in_value(local_package_names, &mut manifest.contents);
+    // There are two ways to specify dependencies:
+    // - top-level
+    // ```toml
+    // [dependencies]
+    // # [...]
+    // ```
+    // - target-specific (e.g. Windows-only)
+    // ```toml
+    // [target.'cfg(windows)'.dependencies]
+    // winhttp = "0.4.0"
+    // ```
+    // The inner structure for target-specific dependencies mirrors the structure expected
+    // for top-level dependencies.
+    // Check out cargo's documentation (https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html)
+    // for more details.
+    _mask(local_package_names, &mut manifest.contents);
     if let Some(targets) = manifest.contents.get_mut("target") {
         if let Some(target_table) = targets.as_table_mut() {
             for (_, target_config) in target_table.iter_mut() {
-                mask_dependencies_in_value(local_package_names, target_config)
+                _mask(local_package_names, target_config)
             }
         }
     }
