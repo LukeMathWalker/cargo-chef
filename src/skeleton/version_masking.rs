@@ -61,10 +61,7 @@ fn mask_local_versions_in_manifests(
     }
 }
 
-fn mask_dependencies_in_value(
-    local_package_names: &[toml::Value],
-    toml_value: &mut toml::Value,
-) {
+fn mask_dependencies_in_value(local_package_names: &[toml::Value], toml_value: &mut toml::Value) {
     for dependency_key in ["dependencies", "dev-dependencies", "build-dependencies"] {
         if let Some(dependencies) = toml_value.get_mut(dependency_key) {
             for local_package in local_package_names.iter() {
@@ -87,8 +84,8 @@ fn mask_local_dependency_versions(
     mask_dependencies_in_value(local_package_names, &mut manifest.contents);
     if let Some(targets) = manifest.contents.get_mut("target") {
         if let Some(target_table) = targets.as_table_mut() {
-            for (_, mut target_config) in target_table.iter_mut() {
-                mask_dependencies_in_value(local_package_names, &mut target_config)
+            for (_, target_config) in target_table.iter_mut() {
+                mask_dependencies_in_value(local_package_names, target_config)
             }
         }
     }
