@@ -54,7 +54,9 @@ fn mask_local_versions_in_manifests(
     for manifest in manifests.iter_mut() {
         if let Some(package) = manifest.contents.get_mut("package") {
             if let Some(version) = package.get_mut("version") {
-                *version = toml::Value::String(CONST_VERSION.to_string());
+                if version.as_str().is_some() {
+                    *version = toml::Value::String(CONST_VERSION.to_string());
+                }
             }
         }
         mask_local_dependency_versions(local_package_names, manifest);
