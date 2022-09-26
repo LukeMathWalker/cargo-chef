@@ -115,6 +115,9 @@ pub struct Cook {
     /// Build offline.
     #[clap(long)]
     offline: bool,
+    /// Report build timings.
+    #[clap(long)]
+    timings: bool,
     /// Cook using `#[no_std]` configuration  (does not affect `proc-macro` crates)
     #[clap(long)]
     no_std: bool,
@@ -152,6 +155,7 @@ fn _main() -> Result<(), anyhow::Error> {
             package,
             workspace,
             offline,
+            timings,
             no_std,
             bin,
         }) => {
@@ -229,6 +233,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     package,
                     workspace,
                     offline,
+                    timings,
                     no_std,
                     bin,
                 })
