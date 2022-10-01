@@ -30,6 +30,7 @@ pub struct CookArgs {
     pub package: Option<String>,
     pub workspace: bool,
     pub offline: bool,
+    pub timings: bool,
     pub no_std: bool,
     pub bin: Option<String>,
 }
@@ -84,6 +85,7 @@ fn build_dependencies(args: &CookArgs) {
         package,
         workspace,
         offline,
+        timings,
         bin,
         no_std: _no_std,
     } = args;
@@ -143,6 +145,9 @@ fn build_dependencies(args: &CookArgs) {
     }
     if *offline {
         command_with_args.arg("--offline");
+    }
+    if *timings {
+        command_with_args.arg("--timings");
     }
 
     execute_command(command_with_args);
