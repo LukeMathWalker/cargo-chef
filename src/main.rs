@@ -75,9 +75,9 @@ pub struct Cook {
     /// Run `cargo check` instead of `cargo build`. Primarily useful for speeding up your CI pipeline.
     #[clap(long)]
     check: bool,
-    /// Build for the target triple.
+    /// Build for the target triple. The flag can be passed multiple times to cook for multiple targets.
     #[clap(long)]
-    target: Option<String>,
+    target: Option<Vec<String>>,
     /// Directory for all generated artifacts.
     #[clap(long, env = "CARGO_TARGET_DIR")]
     target_dir: Option<PathBuf>,

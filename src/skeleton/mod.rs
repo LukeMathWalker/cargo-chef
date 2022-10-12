@@ -242,57 +242,69 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
         &self,
         base_path: P,
         profile: OptimisationProfile,
-        target: Option<String>,
+        target: Option<Vec<String>>,
         target_dir: Option<PathBuf>,
     ) -> Result<(), anyhow::Error> {
-        let mut target_dir = match target_dir {
+        let target_dir = match target_dir {
             None => base_path.as_ref().join("target"),
             Some(target_dir) => target_dir,
         };
-        if let Some(target) = target {
-            target_dir = target_dir.join(target.as_str())
-        }
-        let target_directory = match profile {
-            OptimisationProfile::Release => target_dir.join("release"),
-            OptimisationProfile::Debug => target_dir.join("debug"),
-            OptimisationProfile::Other(custom_profile) => target_dir.join(custom_profile),
+
+        let profile = match profile {
+            OptimisationProfile::Release => "release".to_string(),
+            OptimisationProfile::Debug => "debug".to_string(),
+            OptimisationProfile::Other(custom_profile) => custom_profile,
         };
+
+        let target_directories: Vec<PathBuf> = target
+            .map_or(vec![target_dir.clone()], |targets| {
+                targets
+                    .iter()
+                    .map(|target| target_dir.join(target.as_str()))
+                    .collect()
+            })
+            .iter()
+            .map(|path| path.join(&profile))
+            .collect();
 
         for manifest in &self.manifests {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
             if let Some(package) = parsed_manifest.package.as_ref() {
-                // Remove dummy libraries.
-                for lib in &parsed_manifest.lib {
-                    let library_name = lib.name.as_ref().unwrap_or(&package.name).replace('-', "_");
-                    let walker = GlobWalkerBuilder::from_patterns(
-                        &target_directory,
-                        &[
-                            format!("/**/lib{}.*", library_name),
-                            format!("/**/lib{}-*", library_name),
-                        ],
-                    )
-                    .build()?;
-                    for file in walker {
-                        let file = file?;
-                        if file.file_type().is_file() {
-                            fs::remove_file(file.path())?;
-                        } else if file.file_type().is_dir() {
-                            fs::remove_dir_all(file.path())?;
+                for target_directory in &target_directories {
+                    // Remove dummy libraries.
+                    for lib in &parsed_manifest.lib {
+                        let library_name =
+                            lib.name.as_ref().unwrap_or(&package.name).replace('-', "_");
+                        let walker = GlobWalkerBuilder::from_patterns(
+                            &target_directory,
+                            &[
+                                format!("/**/lib{}.*", library_name),
+                                format!("/**/lib{}-*", library_name),
+                            ],
+                        )
+                        .build()?;
+                        for file in walker {
+                            let file = file?;
+                            if file.file_type().is_file() {
+                                fs::remove_file(file.path())?;
+                            } else if file.file_type().is_dir() {
+                                fs::remove_dir_all(file.path())?;
+                            }
                         }
                     }
-                }
 
-                // Remove dummy build.rs script artifacts.
-                if package.build.is_some() {
-                    let walker = GlobWalkerBuilder::new(
-                        &target_directory,
-                        format!("/build/{}-*/build[-_]script[-_]build*", package.name),
-                    )
-                    .build()?;
-                    for file in walker {
-                        let file = file?;
-                        fs::remove_file(file.path())?;
+                    // Remove dummy build.rs script artifacts.
+                    if package.build.is_some() {
+                        let walker = GlobWalkerBuilder::new(
+                            &target_directory,
+                            format!("/build/{}-*/build[-_]script[-_]build*", package.name),
+                        )
+                        .build()?;
+                        for file in walker {
+                            let file = file?;
+                            fs::remove_file(file.path())?;
+                        }
                     }
                 }
             }
