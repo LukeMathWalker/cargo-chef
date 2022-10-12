@@ -33,6 +33,7 @@ pub struct CookArgs {
     pub timings: bool,
     pub no_std: bool,
     pub bin: Option<String>,
+    pub zigbuild: bool,
 }
 
 impl Recipe {
@@ -88,13 +89,18 @@ fn build_dependencies(args: &CookArgs) {
         timings,
         bin,
         no_std: _no_std,
+        zigbuild,
     } = args;
     let cargo_path = std::env::var("CARGO").expect("The `CARGO` environment variable was not set. This is unexpected: it should always be provided by `cargo` when invoking a custom sub-command, allowing `cargo-chef` to correctly detect which toolchain should be used. Please file a bug.");
     let mut command = Command::new(cargo_path);
     let command_with_args = if *check {
         command.arg("check")
     } else {
-        command.arg("build")
+        if *zigbuild {
+            command.arg("zigbuild")
+        } else {
+            command.arg("build")
+        }
     };
     if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");
