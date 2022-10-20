@@ -92,7 +92,7 @@ cargo +nightly chef cook --recipe-path recipe.json
 `cargo-chef` is designed to be leveraged in Dockerfiles:
 
 ```dockerfile
-FROM lukemathwalker/cargo-chef:latest-rust-1.56.0 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
 WORKDIR app
 
 FROM chef AS planner
@@ -137,7 +137,7 @@ You can find [all the available tags on Dockerhub](https://hub.docker.com/r/luke
 If you do not want to use the `lukemathwalker/cargo-chef` image, you can simply install the CLI within the Dockerfile:
 
 ```dockerfile
-FROM rust:1.56.0 AS chef 
+FROM rust:1 AS chef 
 # We only pay the installation cost once, 
 # it will be cached from the second build onwards
 RUN cargo install cargo-chef 
