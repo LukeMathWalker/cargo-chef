@@ -95,12 +95,10 @@ fn build_dependencies(args: &CookArgs) {
     let mut command = Command::new(cargo_path);
     let command_with_args = if *check {
         command.arg("check")
+    } else if *zigbuild {
+        command.arg("zigbuild")
     } else {
-        if *zigbuild {
-            command.arg("zigbuild")
-        } else {
-            command.arg("build")
-        }
+        command.arg("build")
     };
     if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");
