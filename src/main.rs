@@ -125,6 +125,10 @@ pub struct Cook {
     /// that are not necessary to successfully compile the specific binary.
     #[clap(long)]
     bin: Option<String>,
+    /// Run `cargo zigbuild` instead of `cargo build`. You need to install
+    /// the `cargo-zigbuild` crate and the Zig compiler toolchain separately
+    #[clap(long)]
+    zigbuild: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -158,6 +162,7 @@ fn _main() -> Result<(), anyhow::Error> {
             timings,
             no_std,
             bin,
+            zigbuild,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -238,6 +243,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     timings,
                     no_std,
                     bin,
+                    zigbuild,
                 })
                 .context("Failed to cook recipe.")?;
         }
