@@ -198,7 +198,9 @@ fn _main() -> Result<(), anyhow::Error> {
 
             let profile = match (release, profile) {
                 (false, None) =>  OptimisationProfile::Debug,
+                (false, Some(profile)) if profile == "dev" => OptimisationProfile::Debug,
                 (true, None) => OptimisationProfile::Release,
+                (false, Some(profile)) if profile == "release" => OptimisationProfile::Release,
                 (false, Some(custom_profile)) => OptimisationProfile::Other(custom_profile),
                 (true, Some(_)) => Err(anyhow!("You specified both --release and --profile arguments. Please remove one of them, or both"))?
             };
