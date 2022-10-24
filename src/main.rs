@@ -78,9 +78,9 @@ pub struct Cook {
     /// Run `cargo clippy` instead of `cargo build`. Primarily useful for speeding up your CI pipeline. Requires clippy to be installed.
     #[clap(long)]
     clippy: bool,
-    /// Build for the target triple.
+    /// Build for the target triple. The flag can be passed multiple times to cook for multiple targets.
     #[clap(long)]
-    target: Option<String>,
+    target: Option<Vec<String>>,
     /// Directory for all generated artifacts.
     #[clap(long, env = "CARGO_TARGET_DIR")]
     target_dir: Option<PathBuf>,
@@ -128,6 +128,10 @@ pub struct Cook {
     /// that are not necessary to successfully compile the specific binary.
     #[clap(long)]
     bin: Option<String>,
+    /// Run `cargo zigbuild` instead of `cargo build`. You need to install
+    /// the `cargo-zigbuild` crate and the Zig compiler toolchain separately
+    #[clap(long)]
+    zigbuild: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -162,6 +166,7 @@ fn _main() -> Result<(), anyhow::Error> {
             timings,
             no_std,
             bin,
+            zigbuild,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -202,15 +207,18 @@ fn _main() -> Result<(), anyhow::Error> {
 
             let profile = match (release, profile) {
                 (false, None) =>  OptimisationProfile::Debug,
+                (false, Some(profile)) if profile == "dev" => OptimisationProfile::Debug,
                 (true, None) => OptimisationProfile::Release,
+                (false, Some(profile)) if profile == "release" => OptimisationProfile::Release,
                 (false, Some(custom_profile)) => OptimisationProfile::Other(custom_profile),
                 (true, Some(_)) => Err(anyhow!("You specified both --release and --profile arguments. Please remove one of them, or both"))?
             };
-            let command = match (check, clippy) {
-                (true, true) => Err(anyhow!("You specified both `clippy` and `check` arguments. Please remove one of them, or both"))?,
-                (true, false) => CommandArg::Check,
-                (false, true) => CommandArg::Clippy,
-                (false, false) => CommandArg::Build,
+            let command = match (check, clippy, zigbuild) {
+                (true, false, false) => CommandArg::Check,
+                (false, true, false) => CommandArg::Clippy,
+                (false, false, true) => CommandArg::Zigbuild,
+                (false, false, false) => CommandArg::Build,
+                _ => Err(anyhow!("Only one (or none) of the  `clippy`, `check` and `zigbuild` arguments are allowed. Please remove some of them, or all"))?,
             };
 
             let default_features = if no_default_features {

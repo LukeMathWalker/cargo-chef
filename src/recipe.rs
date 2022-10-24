@@ -21,6 +21,7 @@ pub enum CommandArg {
     Build,
     Check,
     Clippy,
+    Zigbuild,
 }
 
 pub struct CookArgs {
@@ -29,7 +30,7 @@ pub struct CookArgs {
     pub default_features: DefaultFeatures,
     pub features: Option<HashSet<String>>,
     pub unstable_features: Option<HashSet<String>>,
-    pub target: Option<String>,
+    pub target: Option<Vec<String>>,
     pub target_dir: Option<PathBuf>,
     pub target_args: TargetArgs,
     pub manifest_path: Option<PathBuf>,
@@ -101,6 +102,7 @@ fn build_dependencies(args: &CookArgs) {
         CommandArg::Build => command.arg("build"),
         CommandArg::Check => command.arg("check"),
         CommandArg::Clippy => command.arg("clippy"),
+        CommandArg::Zigbuild => command.arg("zigbuild"),
     };
     if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");
@@ -120,7 +122,9 @@ fn build_dependencies(args: &CookArgs) {
         }
     }
     if let Some(target) = target {
-        command_with_args.arg("--target").arg(target);
+        for target in target {
+            command_with_args.arg("--target").arg(target);
+        }
     }
     if let Some(target_dir) = target_dir {
         command_with_args.arg("--target-dir").arg(target_dir);
