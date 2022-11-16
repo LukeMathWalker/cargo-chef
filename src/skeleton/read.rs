@@ -7,8 +7,22 @@ use std::path::Path;
 use std::str::FromStr;
 
 pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, anyhow::Error> {
-    // Given that we run primarily in Docker, assume to find config.toml at root level.
-    match fs::read_to_string(base_path.as_ref().join(".cargo/config.toml")) {
+    // Given that we run primarily in Docker, assume to find config or config.toml at root level.
+    // We give priority to config over config.toml since this is cargo's default behavior.
+
+    let file_contents = |file: &str| {
+        fs::read_to_string(
+            base_path
+                .as_ref()
+                .join(".cargo")
+                .join(file)
+                .into_os_string(),
+        )
+    };
+
+    let config = file_contents("config").or(file_contents("config.toml"));
+
+    match config {
         Ok(config) => Ok(Some(config)),
         Err(e) => {
             if std::io::ErrorKind::NotFound != e.kind() {
