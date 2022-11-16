@@ -17,9 +17,16 @@ pub struct TargetArgs {
     pub all_targets: bool,
 }
 
+pub enum CommandArg {
+    Build,
+    Check,
+    Clippy,
+    Zigbuild,
+}
+
 pub struct CookArgs {
     pub profile: OptimisationProfile,
-    pub check: bool,
+    pub command: CommandArg,
     pub default_features: DefaultFeatures,
     pub features: Option<HashSet<String>>,
     pub unstable_features: Option<HashSet<String>>,
@@ -33,7 +40,6 @@ pub struct CookArgs {
     pub timings: bool,
     pub no_std: bool,
     pub bin: Option<String>,
-    pub zigbuild: bool,
 }
 
 impl Recipe {
@@ -75,7 +81,7 @@ pub enum DefaultFeatures {
 fn build_dependencies(args: &CookArgs) {
     let CookArgs {
         profile,
-        check,
+        command: command_arg,
         default_features,
         features,
         unstable_features,
@@ -89,16 +95,14 @@ fn build_dependencies(args: &CookArgs) {
         timings,
         bin,
         no_std: _no_std,
-        zigbuild,
     } = args;
     let cargo_path = std::env::var("CARGO").expect("The `CARGO` environment variable was not set. This is unexpected: it should always be provided by `cargo` when invoking a custom sub-command, allowing `cargo-chef` to correctly detect which toolchain should be used. Please file a bug.");
     let mut command = Command::new(cargo_path);
-    let command_with_args = if *check {
-        command.arg("check")
-    } else if *zigbuild {
-        command.arg("zigbuild")
-    } else {
-        command.arg("build")
+    let command_with_args = match command_arg {
+        CommandArg::Build => command.arg("build"),
+        CommandArg::Check => command.arg("check"),
+        CommandArg::Clippy => command.arg("clippy"),
+        CommandArg::Zigbuild => command.arg("zigbuild"),
     };
     if profile == &OptimisationProfile::Release {
         command_with_args.arg("--release");

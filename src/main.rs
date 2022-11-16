@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use chef::{CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
+use chef::{CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
 use clap::crate_version;
 use clap::Parser;
 use fs_err as fs;
@@ -75,6 +75,9 @@ pub struct Cook {
     /// Run `cargo check` instead of `cargo build`. Primarily useful for speeding up your CI pipeline.
     #[clap(long)]
     check: bool,
+    /// Run `cargo clippy` instead of `cargo build`. Primarily useful for speeding up your CI pipeline. Requires clippy to be installed.
+    #[clap(long)]
+    clippy: bool,
     /// Build for the target triple. The flag can be passed multiple times to cook for multiple targets.
     #[clap(long)]
     target: Option<Vec<String>>,
@@ -146,6 +149,7 @@ fn _main() -> Result<(), anyhow::Error> {
             profile,
             release,
             check,
+            clippy,
             target,
             no_default_features,
             features,
@@ -209,6 +213,13 @@ fn _main() -> Result<(), anyhow::Error> {
                 (false, Some(custom_profile)) => OptimisationProfile::Other(custom_profile),
                 (true, Some(_)) => Err(anyhow!("You specified both --release and --profile arguments. Please remove one of them, or both"))?
             };
+            let command = match (check, clippy, zigbuild) {
+                (true, false, false) => CommandArg::Check,
+                (false, true, false) => CommandArg::Clippy,
+                (false, false, true) => CommandArg::Zigbuild,
+                (false, false, false) => CommandArg::Build,
+                _ => Err(anyhow!("Only one (or none) of the  `clippy`, `check` and `zigbuild` arguments are allowed. Please remove some of them, or all"))?,
+            };
 
             let default_features = if no_default_features {
                 DefaultFeatures::Disabled
@@ -229,7 +240,7 @@ fn _main() -> Result<(), anyhow::Error> {
             recipe
                 .cook(CookArgs {
                     profile,
-                    check,
+                    command,
                     default_features,
                     features,
                     unstable_features,
@@ -243,7 +254,6 @@ fn _main() -> Result<(), anyhow::Error> {
                     timings,
                     no_std,
                     bin,
-                    zigbuild,
                 })
                 .context("Failed to cook recipe.")?;
         }
