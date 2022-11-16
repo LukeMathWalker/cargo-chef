@@ -20,7 +20,7 @@ pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, an
         )
     };
 
-    let config = file_contents("config").or(file_contents("config.toml"));
+    let config = file_contents("config").or_else(|_| file_contents("config.toml"));
 
     match config {
         Ok(config) => Ok(Some(config)),
@@ -53,9 +53,9 @@ pub(super) fn manifests<P: AsRef<Path>>(
     let vendored_path = vendored_directory(config_contents);
     let builder = if let Some(path) = vendored_path {
         let exclude_vendored_sources = format!("!{}", path);
-        GlobWalkerBuilder::from_patterns(&base_path, &["/**/Cargo.toml", &exclude_vendored_sources])
+        GlobWalkerBuilder::from_patterns(base_path, &["/**/Cargo.toml", &exclude_vendored_sources])
     } else {
-        GlobWalkerBuilder::new(&base_path, "/**/Cargo.toml")
+        GlobWalkerBuilder::new(base_path, "/**/Cargo.toml")
     };
     let walker = builder
         .build()
@@ -97,7 +97,7 @@ pub(super) fn manifests<P: AsRef<Path>>(
                 }
 
                 let relative_path =
-                    pathdiff::diff_paths(&absolute_path, &base_path).ok_or_else(|| {
+                    pathdiff::diff_paths(&absolute_path, base_path).ok_or_else(|| {
                         anyhow::anyhow!(
                             "Failed to compute relative path of manifest {:?}",
                             &absolute_path

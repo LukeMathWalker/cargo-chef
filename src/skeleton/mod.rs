@@ -97,7 +97,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             // Persist manifest
             let manifest_path = base_path.join(&manifest.relative_path);
             let parent_directory = if let Some(parent_directory) = manifest_path.parent() {
-                fs::create_dir_all(&parent_directory)?;
+                fs::create_dir_all(parent_directory)?;
                 parent_directory.to_path_buf()
             } else {
                 base_path.to_path_buf()
@@ -277,7 +277,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
                         let library_name =
                             lib.name.as_ref().unwrap_or(&package.name).replace('-', "_");
                         let walker = GlobWalkerBuilder::from_patterns(
-                            &target_directory,
+                            target_directory,
                             &[
                                 format!("/**/lib{}.*", library_name),
                                 format!("/**/lib{}-*", library_name),
@@ -297,7 +297,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
                     // Remove dummy build.rs script artifacts.
                     if package.build.is_some() {
                         let walker = GlobWalkerBuilder::new(
-                            &target_directory,
+                            target_directory,
                             format!("/build/{}-*/build[-_]script[-_]build*", package.name),
                         )
                         .build()?;
