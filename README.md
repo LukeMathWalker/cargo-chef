@@ -93,7 +93,7 @@ cargo +nightly chef cook --recipe-path recipe.json
 
 ```dockerfile
 FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
-WORKDIR app
+WORKDIR /app
 
 FROM chef AS planner
 COPY . .
@@ -109,7 +109,7 @@ RUN cargo build --release --bin app
 
 # We do not need the Rust toolchain to run the binary!
 FROM debian:buster-slim AS runtime
-WORKDIR app
+WORKDIR /app
 COPY --from=builder /app/target/release/app /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/app"]
 ```
