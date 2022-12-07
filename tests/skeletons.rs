@@ -938,6 +938,196 @@ members = ["backend"]
     );
 }
 
+#[test]
+pub fn mask_workspace_dependencies() {
+    // Arrange
+    let workspace_content = r#"
+[workspace]
+
+members = [
+    "project_a",
+    "project_b",
+]
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+anyhow = "1.0.66"
+project_a = { path = "project_a", version = "0.2.0" }
+project_b = { path = "project_b", version = "0.2.0" }
+    "#;
+
+    let first_content = r#"
+[package]
+name = "project_a"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+project_b = { workspace = true }
+anyhow = { workspace = true }
+    "#;
+
+    let second_content = r#"
+[package]
+name = "project_b"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+project_a = { workspace = true }
+anyhow = { workspace = true }
+    "#;
+
+    let recipe_directory = TempDir::new().unwrap();
+    let manifest = recipe_directory.child("Cargo.toml");
+    manifest.write_str(workspace_content).unwrap();
+    let src = recipe_directory.child("src");
+    src.create_dir_all().unwrap();
+
+    let project_a = src.child("project_a");
+    project_a
+        .child("Cargo.toml")
+        .write_str(first_content)
+        .unwrap();
+    project_a.child("src").create_dir_all().unwrap();
+    project_a.child("src").child("main.rs").touch().unwrap();
+
+    let project_b = src.child("project_b");
+    project_b
+        .child("Cargo.toml")
+        .write_str(second_content)
+        .unwrap();
+    project_b.child("src").create_dir_all().unwrap();
+    project_b.child("src").child("lib.rs").touch().unwrap();
+
+    // Act
+    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), false)
+        .unwrap();
+
+    let first = skeleton.manifests[0].clone();
+    check(
+        &first.contents,
+        expect_test::expect![[r#"
+        [workspace]
+        members = ["project_a", "project_b"]
+
+        [workspace.dependencies]
+        anyhow = "1.0.66"
+
+        [workspace.dependencies.project_a]
+        version = "0.0.1"
+        path = "project_a"
+        
+        [workspace.dependencies.project_b]
+        version = "0.0.1"
+        path = "project_b"
+        
+        [workspace.package]
+        edition = "2021"
+        version = "0.0.1"
+        license = "Apache-2.0"
+    "#]],
+    );
+
+    let second = skeleton.manifests[1].clone();
+    check(
+        &second.contents,
+        expect_test::expect![[r#"
+        bench = []
+        test = []
+        example = []
+        
+        [[bin]]
+        path = "src/main.rs"
+        name = "project_a"
+        test = true
+        doctest = true
+        bench = true
+        doc = true
+        plugin = false
+        proc-macro = false
+        harness = true
+        required-features = []
+        
+        [package]
+        name = "project_a"
+        autobins = true
+        autoexamples = true
+        autotests = true
+        autobenches = true
+        
+        [package.edition]
+        workspace = true
+        
+        [package.version]
+        workspace = true
+        
+        [package.license]
+        workspace = true
+        [dependencies.anyhow]
+        workspace = true
+        
+        [dependencies.project_b]
+        workspace = true
+        "#]],
+    );
+
+    let third = skeleton.manifests[2].clone();
+    check(
+        &third.contents,
+        expect_test::expect![[r#"
+        bin = []
+        bench = []
+        test = []
+        example = []
+        
+        [package]
+        name = "project_b"
+        autobins = true
+        autoexamples = true
+        autotests = true
+        autobenches = true
+        
+        [package.edition]
+        workspace = true
+        
+        [package.version]
+        workspace = true
+        
+        [package.license]
+        workspace = true
+        [dependencies.anyhow]
+        workspace = true
+        
+        [dependencies.project_a]
+        workspace = true
+        
+        [lib]
+        test = true
+        doctest = true
+        bench = true
+        doc = true
+        plugin = false
+        proc-macro = false
+        harness = true
+        required-features = []
+        crate-type = ["cdylib"]
+        "#]],
+    );
+}
+
 fn check(actual: &str, expect: Expect) {
     let actual = actual.to_string();
     expect.assert_eq(&actual);

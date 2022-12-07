@@ -83,7 +83,7 @@ fn mask_local_dependency_versions(
         }
     }
 
-    // There are two ways to specify dependencies:
+    // There are three ways to specify dependencies:
     // - top-level
     // ```toml
     // [dependencies]
@@ -105,6 +105,25 @@ fn mask_local_dependency_versions(
                 _mask(local_package_names, target_config)
             }
         }
+    }
+
+    // The third way to specify dependencies was introduced in rust 1.64: workspace inheritance.
+    // ```toml
+    // [workspace.dependencies]
+    // anyhow = "1.0.66"
+    // project_a = { path = "project_a", version = "0.2.0" }
+    // ```
+    // Check out cargo's documentation (https://doc.rust-lang.org/cargo/reference/workspaces.html#the-workspacedependencies-table)
+    // for more details.
+    if let Some(workspace) = manifest.contents.get_mut("workspace") {
+        // Mask the workspace package version
+        if let Some(package) = workspace.get_mut("package") {
+            if let Some(version) = package.get_mut("version") {
+                *version = toml::Value::String(CONST_VERSION.to_string());
+            }
+        }
+        // Mask the local crates in the workspace dependencies
+        _mask(local_package_names, workspace);
     }
 }
 
