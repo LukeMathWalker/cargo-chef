@@ -260,12 +260,17 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             .map_or(vec![target_dir.clone()], |targets| {
                 targets
                     .iter()
-                    .map(|target| target_dir.join(target.as_str()))
+                    .map(|target| {
+                        let target_str = target.as_str().trim_end_matches(".json");
+                        target_dir.join(target_str)
+                    })
                     .collect()
             })
             .iter()
             .map(|path| path.join(&profile))
             .collect();
+
+        println!("target_directories: {:?}", target_directories);
 
         for manifest in &self.manifests {
             let parsed_manifest =
