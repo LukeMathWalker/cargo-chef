@@ -270,8 +270,6 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             .map(|path| path.join(&profile))
             .collect();
 
-        println!("target_directories: {:?}", target_directories);
-
         for manifest in &self.manifests {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
