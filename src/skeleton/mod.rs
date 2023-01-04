@@ -322,7 +322,6 @@ fn target_str(target: &String) -> &str {
     target.as_str().trim_end_matches(".json")
 }
 
-
 fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, anyhow::Error> {
     let mut serialised_manifests = vec![];
     for manifest in manifests {
