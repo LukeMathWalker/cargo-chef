@@ -260,7 +260,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             .map_or(vec![target_dir.clone()], |targets| {
                 targets
                     .iter()
-                    .map(|target| target_dir.join(target.as_str()))
+                    .map(|target| target_dir.join(target_str(target)))
                     .collect()
             })
             .iter()
@@ -312,6 +312,14 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 
         Ok(())
     }
+}
+
+/// If a custom target spec file is used,
+/// (Part of the unstable cargo feature 'build-std'; c.f. https://doc.rust-lang.org/rustc/targets/custom.html )
+/// the `--target` flag refers to a `.json` file in the current directory.
+/// In this case, the actual name of the target is the value of `--target` without the `.json` suffix.
+fn target_str(target: &str) -> &str {
+    target.trim_end_matches(".json")
 }
 
 fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, anyhow::Error> {
