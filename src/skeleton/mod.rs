@@ -346,10 +346,12 @@ fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
         .and_then(|toml| toml.contents.get_mut("workspace"))
         .and_then(|workspace| workspace.get_mut("members"))
     {
+        let mut search = member.clone();
+        search.insert_str(0, "/");
         match members {
             cargo_manifest::Value::Array(arr) => arr.retain(|i| {
                 if let cargo_manifest::Value::String(item) = i {
-                    item.contains(&member)
+                    item.contains(&search)
                 } else {
                     false
                 }
