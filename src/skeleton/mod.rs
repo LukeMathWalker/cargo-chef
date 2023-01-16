@@ -346,6 +346,16 @@ fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
         .and_then(|toml| toml.contents.get_mut("workspace"))
         .and_then(|workspace| workspace.get_mut("members"))
     {
-        *members = toml::Value::Array(vec![toml::Value::String(member)]);
+        match members {
+            cargo_manifest::Value::Array(arr) => arr.retain(|i| {
+                if let cargo_manifest::Value::String(item) = i {
+                    item.contains(&member)
+                } else {
+                    false
+                }
+            }),
+            _ => panic!("Workspace manifest files has wrong format, members must be an array."),
+        };
+        // *members = toml::Value::Array(vec![toml::Value::String(member)]);
     }
 }
