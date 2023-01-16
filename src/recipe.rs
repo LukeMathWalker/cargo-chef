@@ -50,9 +50,12 @@ impl Recipe {
 
     pub fn cook(&self, args: CookArgs) -> Result<(), anyhow::Error> {
         let current_directory = std::env::current_dir()?;
+        print!("DEBUGMARKER 1");
         self.skeleton
             .build_minimum_project(&current_directory, args.no_std)?;
+        print!("DEBUGMARKER 2");
         build_dependencies(&args);
+        print!("DEBUGMARKER 3");
         self.skeleton
             .remove_compiled_dummies(
                 current_directory,
