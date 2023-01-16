@@ -356,6 +356,5 @@ fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
             }),
             _ => panic!("Workspace manifest files has wrong format, members must be an array."),
         };
-        // *members = toml::Value::Array(vec![toml::Value::String(member)]);
     }
 }
