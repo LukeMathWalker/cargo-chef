@@ -2,7 +2,7 @@ use crate::Skeleton;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -148,13 +148,7 @@ fn build_dependencies(args: &CookArgs) {
         command_with_args.arg("--package").arg(package);
     }
     if let Some(binary_target) = bin {
-        command_with_args.arg("--bin").arg(
-            Path::new(binary_target)
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap(),
-        );
+        command_with_args.arg("--bin").arg(binary_target);
     }
     if *workspace {
         command_with_args.arg("--workspace");
