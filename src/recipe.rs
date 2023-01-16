@@ -159,6 +159,7 @@ fn build_dependencies(args: &CookArgs) {
     if *timings {
         command_with_args.arg("--timings");
     }
+    println!("DEBUG OUTPUT");
     println!("{:?}", command_with_args);
     execute_command(command_with_args);
 }
