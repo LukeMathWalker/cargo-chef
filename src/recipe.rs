@@ -52,15 +52,15 @@ impl Recipe {
         let current_directory = std::env::current_dir()?;
         self.skeleton
             .build_minimum_project(&current_directory, args.no_std)?;
-        build_dependencies(&args);
-        self.skeleton
-            .remove_compiled_dummies(
-                current_directory,
-                args.profile,
-                args.target,
-                args.target_dir,
-            )
-            .context("Failed to clean up dummy compilation artifacts.")?;
+        // build_dependencies(&args);
+        // self.skeleton
+        //     .remove_compiled_dummies(
+        //         current_directory,
+        //         args.profile,
+        //         args.target,
+        //         args.target_dir,
+        //     )
+        //     .context("Failed to clean up dummy compilation artifacts.")?;
         Ok(())
     }
 }
@@ -159,8 +159,6 @@ fn build_dependencies(args: &CookArgs) {
     if *timings {
         command_with_args.arg("--timings");
     }
-    println!("DEBUG OUTPUT");
-    println!("{:?}", command_with_args);
     execute_command(command_with_args);
 }
 
