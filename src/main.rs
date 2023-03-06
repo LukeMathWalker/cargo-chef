@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Context};
-use chef::{CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs};
+use chef::{
+    AllFeatures, CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs,
+};
 use clap::crate_version;
 use clap::Parser;
 use fs_err as fs;
@@ -87,6 +89,9 @@ pub struct Cook {
     /// Do not activate the `default` feature.
     #[clap(long)]
     no_default_features: bool,
+    /// Enable all features.
+    #[clap(long)]
+    all_features: bool,
     /// Space or comma separated list of features to activate.
     #[clap(long, value_delimiter = ',')]
     features: Option<Vec<String>>,
@@ -152,6 +157,7 @@ fn _main() -> Result<(), anyhow::Error> {
             clippy,
             target,
             no_default_features,
+            all_features,
             features,
             unstable_features,
             target_dir,
@@ -227,6 +233,12 @@ fn _main() -> Result<(), anyhow::Error> {
                 DefaultFeatures::Enabled
             };
 
+            let all_features = if all_features {
+                AllFeatures::Enabled
+            } else {
+                AllFeatures::Disabled
+            };
+
             let serialized = fs::read_to_string(recipe_path)
                 .context("Failed to read recipe from the specified path.")?;
             let recipe: Recipe =
@@ -242,6 +254,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     profile,
                     command,
                     default_features,
+                    all_features,
                     features,
                     unstable_features,
                     target,
