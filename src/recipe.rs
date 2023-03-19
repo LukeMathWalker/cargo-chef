@@ -28,6 +28,7 @@ pub struct CookArgs {
     pub profile: OptimisationProfile,
     pub command: CommandArg,
     pub default_features: DefaultFeatures,
+    pub all_features: AllFeatures,
     pub features: Option<HashSet<String>>,
     pub unstable_features: Option<HashSet<String>>,
     pub target: Option<Vec<String>>,
@@ -78,11 +79,18 @@ pub enum DefaultFeatures {
     Disabled,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum AllFeatures {
+    Enabled,
+    Disabled,
+}
+
 fn build_dependencies(args: &CookArgs) {
     let CookArgs {
         profile,
         command: command_arg,
         default_features,
+        all_features,
         features,
         unstable_features,
         target,
@@ -115,6 +123,9 @@ fn build_dependencies(args: &CookArgs) {
     if let Some(features) = features {
         let feature_flag = features.iter().cloned().collect::<Vec<String>>().join(",");
         command_with_args.arg("--features").arg(feature_flag);
+    }
+    if all_features == &AllFeatures::Enabled {
+        command_with_args.arg("--all-features");
     }
     if let Some(unstable_features) = unstable_features {
         for unstable_feature in unstable_features.iter().cloned() {
