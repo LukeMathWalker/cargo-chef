@@ -115,7 +115,7 @@ ENTRYPOINT ["/usr/local/bin/app"]
 ```
 
 We are using three stages: the first computes the recipe file, the second caches our dependencies and builds the binary, the third is our runtime environment.  
-As long as your dependencies do not change the `recipe.json` file will stay the same, therefore the outcome of `cargo cargo chef cook --release --recipe-path recipe.json` will be cached, massively speeding up your builds (up to 5x measured on some commercial projects).
+As long as your dependencies do not change the `recipe.json` file will stay the same, therefore the outcome of `cargo chef cook --release --recipe-path recipe.json` will be cached, massively speeding up your builds (up to 5x measured on some commercial projects).
 
 ### Pre-built images
 
