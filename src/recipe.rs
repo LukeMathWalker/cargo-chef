@@ -35,7 +35,7 @@ pub struct CookArgs {
     pub target_dir: Option<PathBuf>,
     pub target_args: TargetArgs,
     pub manifest_path: Option<PathBuf>,
-    pub package: Option<String>,
+    pub package: Option<Vec<String>>,
     pub workspace: bool,
     pub offline: bool,
     pub timings: bool,
@@ -156,7 +156,9 @@ fn build_dependencies(args: &CookArgs) {
         command_with_args.arg("--manifest-path").arg(manifest_path);
     }
     if let Some(package) = package {
-        command_with_args.arg("--package").arg(package);
+        for package in package {
+            command_with_args.arg("--package").arg(package);
+        }
     }
     if let Some(binary_target) = bin {
         command_with_args.arg("--bin").arg(binary_target);

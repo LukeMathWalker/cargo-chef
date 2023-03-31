@@ -114,9 +114,9 @@ pub struct Cook {
     /// Path to Cargo.toml
     #[clap(long)]
     manifest_path: Option<PathBuf>,
-    /// Package to build (see `cargo help pkgid`)
+    /// Package(s) to build (see `cargo help pkgid`)
     #[clap(long, short = 'p')]
-    package: Option<String>,
+    package: Option<Vec<String>>,
     /// Build all members in the workspace.
     #[clap(long)]
     workspace: bool,
