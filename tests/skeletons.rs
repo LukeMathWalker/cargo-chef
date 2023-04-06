@@ -188,9 +188,6 @@ name = "test-dummy"
 version = "0.1.0"
 edition = "2018"
 
-[lib]
-name = "test-dummy"
-
 [[bench]]
 name = "basics"
 harness = false
@@ -521,7 +518,7 @@ members = [
             "src/project_a",
             r#"
 [package]
-name = "project-a"
+name = "project_a"
 version = "1.2.3"
 edition = "2018"
 
@@ -530,7 +527,7 @@ name = "test-dummy"
 path = "src/main.rs"
 
 [dependencies]
-uuid = { version = "=0.8.0", features = ["v4"] }        
+either = { version = "=1.8.1" }        
 "#,
         )
         .lib_package(
@@ -545,8 +542,8 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-uuid = { version = "=0.8.0", features = ["v4"] }
-project_a = { version = "0.0.1", path = "../project_a" }   
+either = { version = "=1.8.1" }
+project_a = { version = "1.2.3", path = "../project_a" }   
 "#,
         )
         .file(
@@ -557,25 +554,25 @@ project_a = { version = "0.0.1", path = "../project_a" }
 version = 3
 
 [[package]]
-name = "project-a"
+name = "either"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
+
+[[package]]
+name = "project_a"
 version = "1.2.3"
 dependencies = [
-    "uuid",
+ "either",
 ]
 
 [[package]]
 name = "project_b"
 version = "4.5.6"
 dependencies = [
-    "uuid",
-    "project-a"
+ "either",
+ "project_a",
 ]
-
-[[package]]
-name = "uuid"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7" 
 "#,
         )
         .build();
@@ -592,14 +589,14 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
     assert!(!lock_file.contains(
         r#"
 [[package]]
-name = "project-a"
+name = "project_a"
 version = "1.2.3"
 "#
     ));
     assert!(lock_file.contains(
         r#"
 [[package]]
-name = "project-a"
+name = "project_a"
 version = "0.0.1"
 "#
     ));
@@ -620,8 +617,8 @@ version = "0.0.1"
     assert!(lock_file.contains(
         r#"
 [[package]]
-name = "uuid"
-version = "0.8.0"
+name = "either"
+version = "1.8.1"
 "#
     ));
 
@@ -654,7 +651,7 @@ version = "0.8.0"
             required-features = []
 
             [package]
-            name = "project-a"
+            name = "project_a"
             edition = "2018"
             version = "0.0.1"
             autobins = true
@@ -662,9 +659,8 @@ version = "0.8.0"
             autotests = true
             autobenches = true
 
-            [dependencies.uuid]
-            version = "=0.8.0"
-            features = ["v4"]
+            [dependencies.either]
+            version = "=1.8.1"
         "#]],
     );
     let third = skeleton.manifests[2].clone();
@@ -685,13 +681,12 @@ version = "0.8.0"
             autotests = true
             autobenches = true
 
+            [dependencies.either]
+            version = "=1.8.1"
+
             [dependencies.project_a]
             version = "0.0.1"
             path = "../project_a"
-
-            [dependencies.uuid]
-            version = "=0.8.0"
-            features = ["v4"]
 
             [lib]
             test = true
@@ -731,11 +726,12 @@ replace-with = "vendored-sources"
 
 [source.vendored-sources]
 directory = "vendor"
-    "#,
+"#,
         )
-        .manifest(
+        .lib_package(
             "vendor/rocket",
-            r#"[package]
+            r#"
+[package]
 edition = "2018"
 name = "rocket"
 version = "0.5.0-rc.1"
@@ -749,19 +745,36 @@ keywords = ["rocket", "web", "framework", "server"]
 categories = ["web-programming::http-server"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/SergioBenitez/Rocket"
+
 [package.metadata.docs.rs]
 all-features = true
+
 [dependencies.rocket_dep]
-version = "0.3.2""#,
+version = "0.3.2"
+"#,
         )
-        .manifest(
+        .file(
+            "vendor/rocket/.cargo-checksum.json",
+            r#"
+{"files": {}}
+"#,
+        )
+        .lib_package(
             "vendor/rocket_dep",
-            r#"[package]
+            r#"
+[package]
 edition = "2018"
 name = "rocket_dep"
 version = "0.3.2"
 authors = ["Test author"]
-description = "sample package representing all of rocket's dependencies""#,
+description = "sample package representing all of rocket's dependencies"
+"#,
+        )
+        .file(
+            "vendor/rocket_dep/.cargo-checksum.json",
+            r#"
+{"files": {}}
+"#,
         )
         .build();
 
@@ -791,6 +804,15 @@ members = [
             r#"
 [package]
 name = "backend"
+version = "0.1.0"
+edition = "2018"
+    "#,
+        )
+        .bin_package(
+            "ci",
+            r#"
+[package]
+name = "ci"
 version = "0.1.0"
 edition = "2018"
     "#,
@@ -831,7 +853,6 @@ pub fn mask_workspace_dependencies() {
             ".",
             r#"
 [workspace]
-
 members = [
     "project_a",
     "project_b",
@@ -845,11 +866,10 @@ license = "Apache-2.0"
 [workspace.dependencies]
 anyhow = "1.0.66"
 project_a = { path = "project_a", version = "0.2.0" }
-project_b = { path = "project_b", version = "0.2.0" }
     "#,
         )
         .bin_package(
-            "src/project_a",
+            "project_a",
             r#"
 [package]
 name = "project_a"
@@ -858,12 +878,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-project_b = { workspace = true }
 anyhow = { workspace = true }
     "#,
         )
         .lib_package(
-            "src/project_b",
+            "project_b",
             r#"
 [package]
 name = "project_b"
@@ -892,25 +911,21 @@ anyhow = { workspace = true }
     check(
         &first.contents,
         expect_test::expect![[r#"
-        [workspace]
-        members = ["project_a", "project_b"]
+            [workspace]
+            members = ["project_a", "project_b"]
 
-        [workspace.dependencies]
-        anyhow = "1.0.66"
+            [workspace.dependencies]
+            anyhow = "1.0.66"
 
-        [workspace.dependencies.project_a]
-        version = "0.0.1"
-        path = "project_a"
-        
-        [workspace.dependencies.project_b]
-        version = "0.0.1"
-        path = "project_b"
-        
-        [workspace.package]
-        edition = "2021"
-        version = "0.0.1"
-        license = "Apache-2.0"
-    "#]],
+            [workspace.dependencies.project_a]
+            version = "0.0.1"
+            path = "project_a"
+
+            [workspace.package]
+            edition = "2021"
+            version = "0.0.1"
+            license = "Apache-2.0"
+        "#]],
     );
 
     let second = skeleton.manifests[1].clone();
@@ -950,9 +965,6 @@ anyhow = { workspace = true }
             workspace = true
 
             [dependencies.anyhow]
-            workspace = true
-
-            [dependencies.project_b]
             workspace = true
         "#]],
     );
