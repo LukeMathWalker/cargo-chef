@@ -21,20 +21,20 @@ path = "src/lib.rs"
 
 [dependencies]
 atty = "0.2.14"
-clap = { version = "3.1.2", features = ["cargo", "env", "derive"] }
+clap = { version = "4", features = ["cargo", "env", "derive"] }
 serde = { version = "1.0.117", features = ["derive"] }
 serde_json = "1.0.59"
 log = "0.4.11"
-env_logger = "0.9"
+env_logger = "0.10"
 globwalk = "0.8.0"
 anyhow = "1.0.33"
 pathdiff = "0.2.0"
-cargo-manifest = "0.7"
+cargo-manifest = "0.8"
 fs-err = "2.5.0"
-toml = { version = "0.5.7", features = ["preserve_order"] }
+toml = { version = "0.7", features = ["preserve_order"] }
 expect-test = "1.1.0"
 
 [dev-dependencies]
 assert_cmd = "2"
 assert_fs = "1.0.0"
-predicates = "2.0.2"
+predicates = "3"
