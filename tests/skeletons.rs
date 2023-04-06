@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
@@ -9,7 +10,10 @@ use predicates::prelude::*;
 #[test]
 pub fn no_workspace() {
     // Arrange
-    let content = r#"
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
 [package]
 name = "test-dummy"
 version = "0.1.0"
@@ -20,21 +24,14 @@ name = "test-dummy"
 path = "src/main.rs"
 
 [dependencies]
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    recipe_directory.child("Cargo.lock").touch().unwrap();
-    recipe_directory.child("src").create_dir_all().unwrap();
-    recipe_directory
-        .child("src")
-        .child("main.rs")
-        .touch()
-        .unwrap();
+"#,
+        )
+        .touch("src/main.rs")
+        .touch("Cargo.lock")
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -53,7 +50,7 @@ path = "src/main.rs"
         .assert(predicate::path::exists());
 
     // Act (no_std)
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), true)
@@ -81,16 +78,20 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 #[test]
 pub fn workspace() {
     // Arrange
-    let workspace_content = r#"
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
 [workspace]
-
 members = [
     "src/project_a",
     "src/project_b",
-]
-    "#;
-
-    let first_content = r#"
+]        
+"#,
+        )
+        .bin_package(
+            "src/project_a",
+            r#"
 [package]
 name = "project_a"
 version = "0.1.0"
@@ -101,10 +102,12 @@ name = "test-dummy"
 path = "src/main.rs"
 
 [dependencies]
-uuid = { version = "=0.8.0", features = ["v4"] }
-    "#;
-
-    let second_content = r#"
+uuid = { version = "=0.8.0", features = ["v4"] }        
+"#,
+        )
+        .lib_package(
+            "src/project_b",
+            r#"
 [package]
 name = "project_b"
 version = "0.1.0"
@@ -114,33 +117,13 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-uuid = { version = "=0.8.0", features = ["v4"] }
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(workspace_content).unwrap();
-    let src = recipe_directory.child("src");
-    src.create_dir_all().unwrap();
-
-    let project_a = src.child("project_a");
-    project_a
-        .child("Cargo.toml")
-        .write_str(first_content)
-        .unwrap();
-    project_a.child("src").create_dir_all().unwrap();
-    project_a.child("src").child("main.rs").touch().unwrap();
-
-    let project_b = src.child("project_b");
-    project_b
-        .child("Cargo.toml")
-        .write_str(second_content)
-        .unwrap();
-    project_b.child("src").create_dir_all().unwrap();
-    project_b.child("src").child("lib.rs").touch().unwrap();
+uuid = { version = "=0.8.0", features = ["v4"] }        
+"#,
+        )
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -162,7 +145,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
         .assert("");
 
     // Act (no_std)
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), true)
@@ -196,7 +179,10 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 #[test]
 pub fn benches() {
     // Arrange
-    let content = r#"
+    let project = CargoWorkspace::new()
+        .lib_package(
+            ".",
+            r#"
 [package]
 name = "test-dummy"
 version = "0.1.0"
@@ -210,26 +196,13 @@ name = "basics"
 harness = false
 
 [dependencies]
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    recipe_directory.child("src").create_dir_all().unwrap();
-    recipe_directory
-        .child("src")
-        .child("lib.rs")
-        .touch()
-        .unwrap();
-    recipe_directory.child("benches").create_dir_all().unwrap();
-    recipe_directory
-        .child("benches")
-        .child("basics.rs")
-        .touch()
-        .unwrap();
+"#,
+        )
+        .touch("benches/basics.rs")
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -250,7 +223,10 @@ harness = false
 #[test]
 pub fn tests() {
     // Arrange
-    let content = r#"
+    let project = CargoWorkspace::new()
+        .lib_package(
+            ".",
+            r#"
 [package]
 name = "test-dummy"
 version = "0.1.0"
@@ -258,26 +234,13 @@ edition = "2018"
 
 [[test]]
 name = "foo"
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    recipe_directory.child("src").create_dir_all().unwrap();
-    recipe_directory
-        .child("src")
-        .child("lib.rs")
-        .touch()
-        .unwrap();
-    recipe_directory.child("tests").create_dir_all().unwrap();
-    recipe_directory
-        .child("tests")
-        .child("foo.rs")
-        .touch()
-        .unwrap();
+"#,
+        )
+        .touch("tests/foo.rs")
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -290,7 +253,7 @@ name = "foo"
     cook_directory.child("tests").child("foo.rs").assert("");
 
     // Act (no_std)
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), true)
@@ -322,7 +285,10 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 #[test]
 pub fn examples() {
     // Arrange
-    let content = r#"
+    let project = CargoWorkspace::new()
+        .lib_package(
+            ".",
+            r#"
 [package]
 name = "test-dummy"
 version = "0.1.0"
@@ -330,26 +296,13 @@ edition = "2018"
 
 [[example]]
 name = "foo"
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    recipe_directory.child("src").create_dir_all().unwrap();
-    recipe_directory
-        .child("src")
-        .child("lib.rs")
-        .touch()
-        .unwrap();
-    recipe_directory.child("examples").create_dir_all().unwrap();
-    recipe_directory
-        .child("examples")
-        .child("foo.rs")
-        .touch()
-        .unwrap();
+"#,
+        )
+        .touch("examples/foo.rs")
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -365,7 +318,7 @@ name = "foo"
         .assert("fn main() {}");
 
     // Act (no_std)
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), true)
@@ -390,33 +343,35 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 #[test]
 pub fn test_auto_bin_ordering() {
     // Arrange
-    let content = r#"
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
 [package]
 name = "test-dummy"
 version = "0.1.0"
 edition = "2018"
-"#;
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    let bin_dir = recipe_directory.child("src").child("bin");
-    bin_dir.create_dir_all().unwrap();
-    bin_dir.child("a.rs").touch().unwrap();
-    bin_dir.child("b.rs").touch().unwrap();
-    bin_dir.child("c.rs").touch().unwrap();
-    bin_dir.child("d.rs").touch().unwrap();
-    bin_dir.child("e.rs").touch().unwrap();
-    bin_dir.child("f.rs").touch().unwrap();
+"#,
+        )
+        .touch_multiple(&[
+            "src/bin/a.rs",
+            "src/bin/b.rs",
+            "src/bin/c.rs",
+            "src/bin/d.rs",
+            "src/bin/e.rs",
+            "src/bin/f.rs",
+        ])
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
 
     // What we're testing is that auto-directories come back in the same order.
     // Since it's possible that the directories just happen to come back in the
     // same order randomly, we'll run this a few times to increase the
     // likelihood of triggering the problem if it exists.
     for _ in 0..5 {
-        let skeleton2 = Skeleton::derive(recipe_directory.path(), None).unwrap();
+        let skeleton2 = Skeleton::derive(project.path(), None).unwrap();
         assert_eq!(
             skeleton, skeleton2,
             "Skeletons of equal directories are not equal. Check [[bin]] ordering in manifest?"
@@ -427,33 +382,23 @@ edition = "2018"
 #[test]
 pub fn config_toml() {
     // Arrange
-    let content = r#"
-        [package]
-        name = "test-dummy"
-        version = "0.1.0"
-        edition = "2018"
+    let project = CargoWorkspace::new()
+        .bin_package(
+            ".",
+            r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2018"
 
-        [dependencies]
-            "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    recipe_directory.child(".cargo").create_dir_all().unwrap();
-    recipe_directory
-        .child(".cargo")
-        .child("config.toml")
-        .touch()
-        .unwrap();
-    recipe_directory.child("src").create_dir_all().unwrap();
-    recipe_directory
-        .child("src")
-        .child("main.rs")
-        .touch()
-        .unwrap();
+[dependencies]
+"#,
+        )
+        .touch(".cargo/config.toml")
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -476,33 +421,22 @@ pub fn config_toml() {
 #[test]
 pub fn version() {
     // Arrange
-    let content = r#"
-        [package]
-        name = "test-dummy"
-        version = "1.2.3"
-        edition = "2018"
+    let project = CargoWorkspace::new()
+        .bin_package(
+            ".",
+            r#"
+[package]
+name = "test-dummy"
+version = "1.2.3"
+edition = "2018"
 
-        [dependencies]
-            "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    recipe_directory.child(".cargo").create_dir_all().unwrap();
-    recipe_directory
-        .child(".cargo")
-        .child("config.toml")
-        .touch()
-        .unwrap();
-    recipe_directory.child("src").create_dir_all().unwrap();
-    recipe_directory
-        .child("src")
-        .child("main.rs")
-        .touch()
-        .unwrap();
+[dependencies]
+"#,
+        )
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -518,15 +452,21 @@ pub fn version() {
 #[test]
 pub fn version_lock() {
     // Arrange
-    let content = r#"
+    let project = CargoWorkspace::new()
+        .bin_package(
+            ".",
+            r#"
 [package]
 name = "test-dummy"
 version = "1.2.3"
 edition = "2018"
 
-[dependencies]
-    "#;
-    let lockfile = r#"
+[dependencies]        
+"#,
+        )
+        .file(
+            "Cargo.lock",
+            r#"
 # This file is automatically @generated by Cargo.
 # It is not intended for manual editing.
 version = 3
@@ -534,28 +474,12 @@ version = 3
 [[package]]
 name = "test-dummy"
 version = "1.2.3"
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    let lock_file = recipe_directory.child("Cargo.lock");
-    lock_file.write_str(lockfile).unwrap();
-    recipe_directory.child(".cargo").create_dir_all().unwrap();
-    recipe_directory
-        .child(".cargo")
-        .child("config.toml")
-        .touch()
-        .unwrap();
-    recipe_directory.child("src").create_dir_all().unwrap();
-    recipe_directory
-        .child("src")
-        .child("main.rs")
-        .touch()
-        .unwrap();
+    "#,
+        )
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -582,16 +506,20 @@ version = "0.0.1"
 #[test]
 pub fn workspace_version_lock() {
     // Arrange
-    let workspace_content = r#"
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
 [workspace]
-
 members = [
     "src/project_a",
     "src/project_b",
 ]
-    "#;
-
-    let first_content = r#"
+"#,
+        )
+        .bin_package(
+            "src/project_a",
+            r#"
 [package]
 name = "project-a"
 version = "1.2.3"
@@ -602,10 +530,12 @@ name = "test-dummy"
 path = "src/main.rs"
 
 [dependencies]
-uuid = { version = "=0.8.0", features = ["v4"] }
-    "#;
-
-    let second_content = r#"
+uuid = { version = "=0.8.0", features = ["v4"] }        
+"#,
+        )
+        .lib_package(
+            "src/project_b",
+            r#"
 [package]
 name = "project_b"
 version = "4.5.6"
@@ -616,10 +546,12 @@ crate-type = ["cdylib"]
 
 [dependencies]
 uuid = { version = "=0.8.0", features = ["v4"] }
-project_a = { version = "0.0.1", path = "../project_a" }
-    "#;
-
-    let lockfile = r#"
+project_a = { version = "0.0.1", path = "../project_a" }   
+"#,
+        )
+        .file(
+            "Cargo.lock",
+            r#"
 # This file is automatically @generated by Cargo.
 # It is not intended for manual editing.
 version = 3
@@ -643,35 +575,13 @@ dependencies = [
 name = "uuid"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(workspace_content).unwrap();
-    let lock_file = recipe_directory.child("Cargo.lock");
-    lock_file.write_str(lockfile).unwrap();
-    let src = recipe_directory.child("src");
-    src.create_dir_all().unwrap();
-
-    let project_a = src.child("project_a");
-    project_a
-        .child("Cargo.toml")
-        .write_str(first_content)
-        .unwrap();
-    project_a.child("src").create_dir_all().unwrap();
-    project_a.child("src").child("main.rs").touch().unwrap();
-
-    let project_b = src.child("project_b");
-    project_b
-        .child("Cargo.toml")
-        .write_str(second_content)
-        .unwrap();
-    project_b.child("src").create_dir_all().unwrap();
-    project_b.child("src").child("lib.rs").touch().unwrap();
+checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7" 
+"#,
+        )
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -800,7 +710,10 @@ version = "0.8.0"
 #[test]
 pub fn ignore_vendored_directory() {
     // Arrange
-    let content = r#"
+    let project = CargoWorkspace::new()
+        .bin_package(
+            ".",
+            r#"
 [package]
 name = "test-dummy"
 version = "1.2.3"
@@ -808,16 +721,21 @@ edition = "2018"
 
 [dependencies]
 rocket = "0.5.0-rc.1"
-    "#;
-    let cargo_config = r#"
+    "#,
+        )
+        .file(
+            ".cargo/config.toml",
+            r#"
 [source.crates-io]
 replace-with = "vendored-sources"
 
 [source.vendored-sources]
 directory = "vendor"
-    "#;
-
-    let rocket_cargo_toml = r#"[package]
+    "#,
+        )
+        .manifest(
+            "vendor/rocket",
+            r#"[package]
 edition = "2018"
 name = "rocket"
 version = "0.5.0-rc.1"
@@ -834,49 +752,21 @@ repository = "https://github.com/SergioBenitez/Rocket"
 [package.metadata.docs.rs]
 all-features = true
 [dependencies.rocket_dep]
-version = "0.3.2""#;
-
-    let rocket_dep_cargo_toml = r#"[package]
+version = "0.3.2""#,
+        )
+        .manifest(
+            "vendor/rocket_dep",
+            r#"[package]
 edition = "2018"
 name = "rocket_dep"
 version = "0.3.2"
 authors = ["Test author"]
-description = "sample package representing all of rocket's dependencies""#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(content).unwrap();
-    recipe_directory.child(".cargo").create_dir_all().unwrap();
-    recipe_directory
-        .child(".cargo")
-        .child("config.toml")
-        .write_str(cargo_config)
-        .unwrap();
-    recipe_directory.child("src").create_dir_all().unwrap();
-    recipe_directory
-        .child("src")
-        .child("main.rs")
-        .touch()
-        .unwrap();
-
-    let vendored = recipe_directory.child("vendor");
-    let rocket = vendored.child("rocket");
-    let sample_rocket_dep = vendored.child("rocket_dep");
-    rocket.create_dir_all().unwrap();
-    sample_rocket_dep.create_dir_all().unwrap();
-
-    rocket
-        .child("Cargo.toml")
-        .write_str(rocket_cargo_toml)
-        .unwrap();
-
-    sample_rocket_dep
-        .child("Cargo.toml")
-        .write_str(rocket_dep_cargo_toml)
-        .unwrap();
+description = "sample package representing all of rocket's dependencies""#,
+        )
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
@@ -885,37 +775,30 @@ description = "sample package representing all of rocket's dependencies""#;
 #[test]
 pub fn specify_member_in_workspace() {
     // Arrange
-    let workspace_content = r#"
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
 [workspace]
-
 members = [
     "backend",
     "ci",
 ]
-    "#;
-
-    let first_content = r#"
+    "#,
+        )
+        .bin_package(
+            "backend",
+            r#"
 [package]
 name = "backend"
 version = "0.1.0"
 edition = "2018"
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(workspace_content).unwrap();
-    let backend = recipe_directory.child("backend");
-    backend.create_dir_all().unwrap();
-
-    backend
-        .child("Cargo.toml")
-        .write_str(first_content)
-        .unwrap();
-    backend.child("src").create_dir_all().unwrap();
-    backend.child("src").child("main.rs").touch().unwrap();
+    "#,
+        )
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), "backend".to_string().into()).unwrap();
+    let skeleton = Skeleton::derive(project.path(), "backend".to_string().into()).unwrap();
 
     let gold = r#"[workspace]
 members = ["backend"]
@@ -943,7 +826,10 @@ members = ["backend"]
 #[test]
 pub fn mask_workspace_dependencies() {
     // Arrange
-    let workspace_content = r#"
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
 [workspace]
 
 members = [
@@ -960,9 +846,11 @@ license = "Apache-2.0"
 anyhow = "1.0.66"
 project_a = { path = "project_a", version = "0.2.0" }
 project_b = { path = "project_b", version = "0.2.0" }
-    "#;
-
-    let first_content = r#"
+    "#,
+        )
+        .bin_package(
+            "src/project_a",
+            r#"
 [package]
 name = "project_a"
 version.workspace = true
@@ -972,9 +860,11 @@ license.workspace = true
 [dependencies]
 project_b = { workspace = true }
 anyhow = { workspace = true }
-    "#;
-
-    let second_content = r#"
+    "#,
+        )
+        .lib_package(
+            "src/project_b",
+            r#"
 [package]
 name = "project_b"
 version.workspace = true
@@ -987,32 +877,12 @@ crate-type = ["cdylib"]
 [dependencies]
 project_a = { workspace = true }
 anyhow = { workspace = true }
-    "#;
-
-    let recipe_directory = TempDir::new().unwrap();
-    let manifest = recipe_directory.child("Cargo.toml");
-    manifest.write_str(workspace_content).unwrap();
-    let src = recipe_directory.child("src");
-    src.create_dir_all().unwrap();
-
-    let project_a = src.child("project_a");
-    project_a
-        .child("Cargo.toml")
-        .write_str(first_content)
-        .unwrap();
-    project_a.child("src").create_dir_all().unwrap();
-    project_a.child("src").child("main.rs").touch().unwrap();
-
-    let project_b = src.child("project_b");
-    project_b
-        .child("Cargo.toml")
-        .write_str(second_content)
-        .unwrap();
-    project_b.child("src").create_dir_all().unwrap();
-    project_b.child("src").child("lib.rs").touch().unwrap();
+    "#,
+        )
+        .build();
 
     // Act
-    let skeleton = Skeleton::derive(recipe_directory.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -1135,4 +1005,67 @@ anyhow = { workspace = true }
 fn check(actual: &str, expect: Expect) {
     let actual = actual.to_string();
     expect.assert_eq(&actual);
+}
+
+#[derive(Default)]
+struct CargoWorkspace {
+    files: HashMap<PathBuf, String>,
+}
+impl CargoWorkspace {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn manifest<P: AsRef<Path>>(&mut self, directory: P, content: &str) -> &mut Self {
+        self.file(directory.as_ref().join("Cargo.toml"), content)
+    }
+
+    fn lib_package<P: AsRef<Path>>(&mut self, directory: P, content: &str) -> &mut Self {
+        let directory = directory.as_ref();
+        self.manifest(directory, content)
+            .file(directory.join("src/lib.rs"), "")
+    }
+
+    fn bin_package<P: AsRef<Path>>(&mut self, directory: P, content: &str) -> &mut Self {
+        let directory = directory.as_ref();
+        self.manifest(directory, content)
+            .file(directory.join("src/main.rs"), "")
+    }
+
+    fn file<P: AsRef<Path>>(&mut self, path: P, content: &str) -> &mut Self {
+        let path = PathBuf::from(path.as_ref());
+
+        assert!(self.files.insert(path, content.to_string()).is_none());
+        self
+    }
+
+    fn touch<P: AsRef<Path>>(&mut self, path: P) -> &mut Self {
+        self.file(path, "")
+    }
+    fn touch_multiple<P: AsRef<Path>>(&mut self, paths: &[P]) -> &mut Self {
+        for path in paths {
+            self.touch(path);
+        }
+        self
+    }
+
+    fn build(&mut self) -> BuiltWorkspace {
+        let directory = TempDir::new().unwrap();
+        for (file, content) in &self.files {
+            let path = directory.join(file);
+            let content = content.trim_start();
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, content).unwrap();
+        }
+        BuiltWorkspace { directory }
+    }
+}
+
+struct BuiltWorkspace {
+    directory: TempDir,
+}
+impl BuiltWorkspace {
+    fn path(&self) -> &Path {
+        self.directory.path()
+    }
 }
