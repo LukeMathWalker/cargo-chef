@@ -751,6 +751,7 @@ version = "0.8.0"
             autoexamples = true
             autotests = true
             autobenches = true
+
             [dependencies.uuid]
             version = "=0.8.0"
             features = ["v4"]
@@ -773,6 +774,7 @@ version = "0.8.0"
             autoexamples = true
             autotests = true
             autobenches = true
+
             [dependencies.project_a]
             version = "0.0.1"
             path = "../project_a"
@@ -1045,42 +1047,43 @@ anyhow = { workspace = true }
     check(
         &second.contents,
         expect_test::expect![[r#"
-        bench = []
-        test = []
-        example = []
-        
-        [[bin]]
-        path = "src/main.rs"
-        name = "project_a"
-        test = true
-        doctest = true
-        bench = true
-        doc = true
-        plugin = false
-        proc-macro = false
-        harness = true
-        required-features = []
-        
-        [package]
-        name = "project_a"
-        autobins = true
-        autoexamples = true
-        autotests = true
-        autobenches = true
-        
-        [package.edition]
-        workspace = true
-        
-        [package.version]
-        workspace = true
-        
-        [package.license]
-        workspace = true
-        [dependencies.anyhow]
-        workspace = true
-        
-        [dependencies.project_b]
-        workspace = true
+            bench = []
+            test = []
+            example = []
+
+            [[bin]]
+            path = "src/main.rs"
+            name = "project_a"
+            test = true
+            doctest = true
+            bench = true
+            doc = true
+            plugin = false
+            proc-macro = false
+            harness = true
+            required-features = []
+
+            [package]
+            name = "project_a"
+            autobins = true
+            autoexamples = true
+            autotests = true
+            autobenches = true
+
+            [package.edition]
+            workspace = true
+
+            [package.version]
+            workspace = true
+
+            [package.license]
+            workspace = true
+
+            [dependencies.anyhow]
+            workspace = true
+
+            [dependencies.project_b]
+            workspace = true
         "#]],
     );
 
@@ -1088,42 +1091,43 @@ anyhow = { workspace = true }
     check(
         &third.contents,
         expect_test::expect![[r#"
-        bin = []
-        bench = []
-        test = []
-        example = []
-        
-        [package]
-        name = "project_b"
-        autobins = true
-        autoexamples = true
-        autotests = true
-        autobenches = true
-        
-        [package.edition]
-        workspace = true
-        
-        [package.version]
-        workspace = true
-        
-        [package.license]
-        workspace = true
-        [dependencies.anyhow]
-        workspace = true
-        
-        [dependencies.project_a]
-        workspace = true
-        
-        [lib]
-        test = true
-        doctest = true
-        bench = true
-        doc = true
-        plugin = false
-        proc-macro = false
-        harness = true
-        required-features = []
-        crate-type = ["cdylib"]
+            bin = []
+            bench = []
+            test = []
+            example = []
+
+            [package]
+            name = "project_b"
+            autobins = true
+            autoexamples = true
+            autotests = true
+            autobenches = true
+
+            [package.edition]
+            workspace = true
+
+            [package.version]
+            workspace = true
+
+            [package.license]
+            workspace = true
+
+            [dependencies.anyhow]
+            workspace = true
+
+            [dependencies.project_a]
+            workspace = true
+
+            [lib]
+            test = true
+            doctest = true
+            bench = true
+            doc = true
+            plugin = false
+            proc-macro = false
+            harness = true
+            required-features = []
+            crate-type = ["cdylib"]
         "#]],
     );
 }
