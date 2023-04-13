@@ -21,6 +21,8 @@
 </div>
 <br/>
 
+> `cargo-chef` was initially developed for the deployment chapter of [Zero to Production In Rust](https://zero2prod.com), a hands-on introduction to backend development using the Rust programming language.
+
 # Table of Contents
 0. [How to install](#how-to-install)
 1. [How to use](#how-to-use)
