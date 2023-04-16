@@ -1014,6 +1014,50 @@ anyhow = { workspace = true }
     );
 }
 
+#[test]
+pub fn workspace_glob_members() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = ["crates/*"]
+    "#,
+        )
+        .bin_package(
+            "crates/project_a",
+            r#"
+[package]
+name = "project_a"
+version = "0.0.1"
+    "#,
+        )
+        .lib_package(
+            "crates/project_b",
+            r#"
+[package]
+name = "project_b"
+version = "0.0.1"
+    "#,
+        )
+        .lib_package(
+            "crates-unused/project_c",
+            r#"
+[package]
+name = "project_c"
+version = "0.0.1"
+    "#,
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+
+    // Assert
+    assert_eq!(skeleton.manifests.len(), 3);
+}
+
 fn check(actual: &str, expect: Expect) {
     let actual = actual.to_string();
     expect.assert_eq(&actual);
