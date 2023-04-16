@@ -33,9 +33,11 @@ impl Skeleton {
         base_path: P,
         member: Option<String>,
     ) -> Result<Self, anyhow::Error> {
+        let metadata = extract_cargo_metadata(base_path.as_ref())?;
+
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
-        let mut manifests = read::manifests(&base_path, config_file.as_deref())?;
+        let mut manifests = read::manifests(&base_path, metadata)?;
         if let Some(member) = member {
             ignore_all_members_except(&mut manifests, member);
         }
@@ -335,9 +337,16 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
     Ok(serialised_manifests)
 }
 
+fn extract_cargo_metadata(path: &Path) -> Result<cargo_metadata::Metadata, anyhow::Error> {
+    let mut cmd = cargo_metadata::MetadataCommand::new();
+    cmd.current_dir(path);
+
+    cmd.exec().context("Cannot extract Cargo metadata")
+}
+
 /// If the top-level `Cargo.toml` has a `members` field, replace it with
 /// a list consisting of just the specified member.
-fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
+fn ignore_all_members_except(manifests: &mut Vec<ParsedManifest>, member: String) {
     let workspace_toml = manifests
         .iter_mut()
         .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"));
@@ -346,6 +355,18 @@ fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
         .and_then(|toml| toml.contents.get_mut("workspace"))
         .and_then(|workspace| workspace.get_mut("members"))
     {
-        *members = toml::Value::Array(vec![toml::Value::String(member)]);
+        *members = toml::Value::Array(vec![toml::Value::String(member.clone())]);
     }
+
+    // Remove manifest(s) with package name equal to `member`
+    manifests.retain(|manifest| {
+        let package_name = manifest
+            .contents
+            .as_table()
+            .and_then(|t| t.get("package"))
+            .and_then(|t| t.as_table())
+            .and_then(|t| t.get("name"))
+            .and_then(|t| t.as_str());
+        package_name.is_none() || package_name == Some(&member)
+    });
 }
