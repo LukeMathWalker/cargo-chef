@@ -33,6 +33,7 @@ cargo-manifest = "0.8"
 fs-err = "2.5.0"
 toml = { version = "0.7", features = ["preserve_order"] }
 expect-test = "1.1.0"
+cargo_metadata = "0.15"
 
 [dev-dependencies]
 assert_cmd = "2"
