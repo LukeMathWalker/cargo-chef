@@ -358,7 +358,7 @@ fn ignore_all_members_except(manifests: &mut Vec<ParsedManifest>, member: String
         *members = toml::Value::Array(vec![toml::Value::String(member.clone())]);
     }
 
-    // Remove manifest(s) with package name equal to `member`
+    // Keep only manifest(s) with package name equal to `member`
     manifests.retain(|manifest| {
         let package_name = manifest
             .contents

@@ -503,22 +503,23 @@ version = "0.0.1"
 #[test]
 pub fn workspace_version_lock() {
     // Arrange
+    // project-a is named with a dash to test that such unnormalized name can be handled.
     let project = CargoWorkspace::new()
         .manifest(
             ".",
             r#"
 [workspace]
 members = [
-    "src/project_a",
+    "src/project-a",
     "src/project_b",
 ]
 "#,
         )
         .bin_package(
-            "src/project_a",
+            "src/project-a",
             r#"
 [package]
-name = "project_a"
+name = "project-a"
 version = "1.2.3"
 edition = "2018"
 
@@ -543,7 +544,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 either = { version = "=1.8.1" }
-project_a = { version = "1.2.3", path = "../project_a" }   
+project-a = { version = "1.2.3", path = "../project-a" }   
 "#,
         )
         .file(
@@ -560,7 +561,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
 
 [[package]]
-name = "project_a"
+name = "project-a"
 version = "1.2.3"
 dependencies = [
  "either",
@@ -589,14 +590,14 @@ dependencies = [
     assert!(!lock_file.contains(
         r#"
 [[package]]
-name = "project_a"
+name = "project-a"
 version = "1.2.3"
 "#
     ));
     assert!(lock_file.contains(
         r#"
 [[package]]
-name = "project_a"
+name = "project-a"
 version = "0.0.1"
 "#
     ));
@@ -627,7 +628,7 @@ version = "1.8.1"
         &first.contents,
         expect_test::expect![[r#"
         [workspace]
-        members = ["src/project_a", "src/project_b"]
+        members = ["src/project-a", "src/project_b"]
     "#]],
     );
     let second = skeleton.manifests[1].clone();
@@ -651,7 +652,7 @@ version = "1.8.1"
             required-features = []
 
             [package]
-            name = "project_a"
+            name = "project-a"
             edition = "2018"
             version = "0.0.1"
             autobins = true
@@ -684,9 +685,9 @@ version = "1.8.1"
             [dependencies.either]
             version = "=1.8.1"
 
-            [dependencies.project_a]
+            [dependencies.project-a]
             version = "0.0.1"
-            path = "../project_a"
+            path = "../project-a"
 
             [lib]
             test = true

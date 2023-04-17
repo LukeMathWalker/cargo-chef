@@ -1,9 +1,9 @@
 //! Logic to read all the files required to build a caching layer for a project.
 use super::ParsedManifest;
 use cargo_metadata::Metadata;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 
 pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, anyhow::Error> {
@@ -39,14 +39,17 @@ pub(super) fn manifests<P: AsRef<Path>>(
     base_path: &P,
     metadata: Metadata,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
-    let mut metadata_paths = metadata
+    let manifest_paths = metadata
         .workspace_packages()
-        .into_iter()
+        .iter()
         .map(|package| package.manifest_path.clone().into_std_path_buf())
-        .collect::<HashSet<_>>();
-    metadata_paths.insert(base_path.as_ref().join("Cargo.toml"));
-    let mut manifest_paths: Vec<PathBuf> = metadata_paths.into_iter().collect();
-    manifest_paths.sort();
+        .chain(
+            metadata
+                .root_package()
+                .map(|p| p.clone().manifest_path.into_std_path_buf())
+                .or_else(|| Some(base_path.as_ref().join("Cargo.toml"))),
+        )
+        .collect::<BTreeSet<_>>();
 
     let mut manifests = vec![];
     for absolute_path in manifest_paths {
