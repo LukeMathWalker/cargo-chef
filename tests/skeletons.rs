@@ -1122,7 +1122,7 @@ struct BuiltWorkspace {
     directory: TempDir,
 }
 impl BuiltWorkspace {
-    fn path(&self) -> &Path {
-        self.directory.path()
+    fn path(&self) -> PathBuf {
+        self.directory.canonicalize().unwrap()
     }
 }
