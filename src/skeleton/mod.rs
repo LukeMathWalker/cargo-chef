@@ -346,7 +346,7 @@ fn extract_cargo_metadata(path: &Path) -> Result<cargo_metadata::Metadata, anyho
 
 /// If the top-level `Cargo.toml` has a `members` field, replace it with
 /// a list consisting of just the specified member.
-fn ignore_all_members_except(manifests: &mut Vec<ParsedManifest>, member: String) {
+fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
     let workspace_toml = manifests
         .iter_mut()
         .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"));
@@ -355,18 +355,6 @@ fn ignore_all_members_except(manifests: &mut Vec<ParsedManifest>, member: String
         .and_then(|toml| toml.contents.get_mut("workspace"))
         .and_then(|workspace| workspace.get_mut("members"))
     {
-        *members = toml::Value::Array(vec![toml::Value::String(member.clone())]);
+        *members = toml::Value::Array(vec![toml::Value::String(member)]);
     }
-
-    // Keep only manifest(s) with package name equal to `member`
-    manifests.retain(|manifest| {
-        let package_name = manifest
-            .contents
-            .as_table()
-            .and_then(|t| t.get("package"))
-            .and_then(|t| t.as_table())
-            .and_then(|t| t.get("name"))
-            .and_then(|t| t.as_str());
-        package_name.is_none() || package_name == Some(&member)
-    });
 }
