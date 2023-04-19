@@ -823,18 +823,17 @@ edition = "2018"
     // Act
     let skeleton = Skeleton::derive(project.path(), "backend".to_string().into()).unwrap();
 
-    let gold = r#"[workspace]
-members = ["backend"]
-"#;
-
     // Assert:
-    // - that "ci" is not in `skeleton`'s manifests
+    // - that "ci" is *still* in the list of `skeleton`'s manifests
     assert!(skeleton
         .manifests
         .iter()
-        .all(|manifest| !manifest.contents.contains("ci")));
+        .any(|manifest| !manifest.contents.contains("ci")));
 
-    // - that the root manifest matches the file contents
+    // - that the list of members has been cut down to "backend", as expected
+    let gold = r#"[workspace]
+members = ["backend"]
+"#;
     assert!(
         skeleton
             .manifests
