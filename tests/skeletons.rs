@@ -1132,6 +1132,70 @@ version = "0.2.1"
     );
 }
 
+#[test]
+pub fn cross_workspace_deps() {
+    // Arrange
+    let common = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = ["crates/*"]
+    "#,
+        )
+        .lib_package(
+            "crates/lib_a",
+            r#"
+[package]
+name = "lib_a"
+version = "0.0.1"
+workspace = "../.."
+
+[dependencies]
+lib_b = { path = "../lib_b" }
+    "#,
+        )
+        .lib_package(
+            "crates/lib_b",
+            r#"
+[package]
+name = "lib_b"
+version = "0.0.1"
+    "#,
+        )
+        .build();
+
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = ["crates/*"]
+    "#,
+        )
+        .bin_package(
+            "crates/bin_a",
+            &format!(
+                r#"
+[package]
+name = "bin_a"
+version = "0.0.1"
+
+[dependencies]
+lib_a = {{ path = "{}/crates/lib_a" }}
+    "#,
+                common.path().display()
+            ),
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+
+    // Assert
+    assert_eq!(skeleton.manifests.len(), 5);
+}
+
 fn check(actual: &str, expect: Expect) {
     let actual = actual.to_string();
     expect.assert_eq(&actual);
