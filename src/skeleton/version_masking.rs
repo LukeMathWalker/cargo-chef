@@ -75,7 +75,7 @@ fn mask_local_dependency_versions(
                         let mut must_mark_version = false;
 
                         if let Some(package_name) = dependency.get("package") {
-                            // We are dealing with a renamed package, so we check the name of the 
+                            // We are dealing with a renamed package, so we check the name of the
                             // "source" package.
                             if local_package_names.contains(package_name) {
                                 must_mark_version = true;

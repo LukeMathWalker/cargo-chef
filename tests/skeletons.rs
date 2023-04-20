@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use chef::Skeleton;
-use expect_test::{Expect, expect};
+use expect_test::{expect, Expect};
 use predicates::prelude::*;
 
 #[test]
@@ -1095,7 +1095,9 @@ version = "0.2.1"
     // Act
     let skeleton = Skeleton::derive(project.path(), None).unwrap();
 
-    check(&skeleton.manifests[1].contents, expect![[r#"
+    check(
+        &skeleton.manifests[1].contents,
+        expect![[r#"
         bin = []
         bench = []
         test = []
@@ -1126,7 +1128,8 @@ version = "0.2.1"
         harness = true
         required-features = []
         crate-type = ["rlib"]
-    "#]]);
+    "#]],
+    );
 }
 
 fn check(actual: &str, expect: Expect) {
