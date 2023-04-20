@@ -70,10 +70,26 @@ fn mask_local_dependency_versions(
     fn _mask(local_package_names: &[toml::Value], toml_value: &mut toml::Value) {
         for dependency_key in ["dependencies", "dev-dependencies", "build-dependencies"] {
             if let Some(dependencies) = toml_value.get_mut(dependency_key) {
-                for local_package in local_package_names.iter() {
-                    if let toml::Value::String(local_package) = local_package {
-                        if let Some(local_dependency) = dependencies.get_mut(local_package) {
-                            if let Some(version) = local_dependency.get_mut("version") {
+                if let Some(dependencies) = dependencies.as_table_mut() {
+                    for (key, dependency) in dependencies {
+                        let mut must_mark_version = false;
+
+                        if let Some(package_name) = dependency.get("package") {
+                            // We are dealing with a renamed package, so we check the name of the
+                            // "source" package.
+                            if local_package_names.contains(package_name) {
+                                must_mark_version = true;
+                            }
+                        } else {
+                            // The package has not been renamed, so we check the name of the
+                            // key in the dependencies table.
+                            if local_package_names.contains(&toml::Value::String(key.to_string())) {
+                                must_mark_version = true;
+                            }
+                        }
+
+                        if must_mark_version {
+                            if let Some(version) = dependency.get_mut("version") {
                                 *version = toml::Value::String(CONST_VERSION.to_string());
                             }
                         }
