@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use chef::Skeleton;
-use expect_test::Expect;
+use expect_test::{Expect, expect};
 use predicates::prelude::*;
 
 #[test]
@@ -1056,6 +1056,77 @@ version = "0.0.1"
 
     // Assert
     assert_eq!(skeleton.manifests.len(), 3);
+}
+
+#[test]
+pub fn renamed_local_dependencies() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = ["a", "b"]
+    "#,
+        )
+        .lib_package(
+            "a",
+            r#"
+[package]
+name = "a"
+version = "0.5.0"
+
+[dependencies.c]
+version = "0.2.1"
+package = "b"
+path = "../b"
+    "#,
+        )
+        .lib_package(
+            "b",
+            r#"
+[package]
+name = "b"
+version = "0.2.1"
+    "#,
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+
+    check(&skeleton.manifests[1].contents, expect![[r#"
+        bin = []
+        bench = []
+        test = []
+        example = []
+
+        [package]
+        name = "a"
+        version = "0.0.1"
+        autobins = true
+        autoexamples = true
+        autotests = true
+        autobenches = true
+
+        [dependencies.c]
+        version = "0.0.1"
+        path = "../b"
+        package = "b"
+
+        [lib]
+        path = "src/lib.rs"
+        name = "a"
+        test = true
+        doctest = true
+        bench = true
+        doc = true
+        plugin = false
+        proc-macro = false
+        harness = true
+        required-features = []
+        crate-type = ["rlib"]
+    "#]]);
 }
 
 fn check(actual: &str, expect: Expect) {
