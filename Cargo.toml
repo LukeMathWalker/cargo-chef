@@ -1,6 +1,6 @@
 [package]
 name = "cargo-chef"
-version = "0.1.58"
+version = "0.1.59"
 authors = ["Luca Palmieri <lpalmieri@truelayer.com>"]
 edition = "2018"
 description = "A cargo sub-command to build project dependencies for optimal Docker layer caching."
