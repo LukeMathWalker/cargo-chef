@@ -340,6 +340,7 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
 fn extract_cargo_metadata(path: &Path) -> Result<cargo_metadata::Metadata, anyhow::Error> {
     let mut cmd = cargo_metadata::MetadataCommand::new();
     cmd.current_dir(path);
+    cmd.other_options(["--offline".to_string()]);
 
     cmd.exec().context("Cannot extract Cargo metadata")
 }
