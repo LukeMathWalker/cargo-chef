@@ -1,7 +1,7 @@
 //! Logic to read all the files required to build a caching layer for a project.
 use super::ParsedManifest;
-use cargo_metadata::Metadata;
-use std::collections::BTreeSet;
+use crate::skeleton::target::{Target, TargetKind};
+use cargo_metadata::{Metadata, Package};
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
@@ -39,20 +39,27 @@ pub(super) fn manifests<P: AsRef<Path>>(
     base_path: &P,
     metadata: Metadata,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
-    let manifest_paths = metadata
+    let mut packages = metadata
         .workspace_packages()
         .iter()
-        .map(|package| package.manifest_path.clone().into_std_path_buf())
-        .chain(
-            metadata
-                .root_package()
-                .map(|p| p.clone().manifest_path.into_std_path_buf())
-                .or_else(|| Some(base_path.as_ref().join("Cargo.toml"))),
-        )
-        .collect::<BTreeSet<_>>();
+        .copied()
+        .chain(metadata.root_package())
+        .map(|p| (Some(p), p.manifest_path.clone().into_std_path_buf()))
+        .collect::<Vec<_>>();
+
+    if metadata.root_package().is_none() {
+        // At the root, there might be a Cargo.toml manifest with a [workspace] section.
+        // However, if this root manifest doesn't contain [package], it is not considered a package
+        // by cargo metadata. Therefore, we have to add it manually.
+        // Workspaces currently cannot be nested, so this should only happen at the root.
+        packages.push((None, base_path.as_ref().join("Cargo.toml")));
+    }
+
+    packages.sort_by(|a, b| a.1.cmp(&b.1));
+    packages.dedup();
 
     let mut manifests = vec![];
-    for absolute_path in manifest_paths {
+    for (package, absolute_path) in packages {
         let contents = fs::read_to_string(&absolute_path)?;
 
         let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
@@ -89,13 +96,61 @@ pub(super) fn manifests<P: AsRef<Path>>(
                 &absolute_path
             )
         })?;
+        let mut targets = package.map(|p| gather_targets(p)).unwrap_or_default();
+        targets.sort_by(|a, b| a.path.cmp(&b.path));
+
         manifests.push(ParsedManifest {
             relative_path,
             contents: intermediate,
+            targets,
         });
     }
 
     Ok(manifests)
+}
+// I started implementing resolving targets through `cargo metadata`, but I wonder if it makes sense. We currently recreate
+fn gather_targets(package: &Package) -> Vec<Target> {
+    let manifest = package.manifest_path.clone().into_std_path_buf();
+    let root_dir = manifest.parent().unwrap();
+    package
+        .targets
+        .iter()
+        .filter_map(|target| {
+            let relative_path = target
+                .src_path
+                .strip_prefix(root_dir)
+                .unwrap()
+                .to_path_buf()
+                .into_std_path_buf();
+            let kind = if target.is_bench() {
+                TargetKind::Bench
+            } else if target.is_example() {
+                TargetKind::Example
+            } else if target.is_test() {
+                TargetKind::Test
+            } else if target.is_bin() {
+                TargetKind::Bin
+            } else if target.is_custom_build() {
+                TargetKind::BuildScript
+            } else {
+                // If a library has custom crate type (e.g. "cdylib"), it's kind will be "cdylib"
+                // instead of just "lib". Therefore, we assume that this target is a library.
+                TargetKind::Lib {
+                    is_proc_macro: target
+                        .crate_types
+                        .iter()
+                        .find(|t| t.as_str() == "proc-macro")
+                        .is_some(),
+                }
+            };
+
+            Some(Target {
+                path: relative_path,
+                kind,
+                name: target.name.clone(),
+            })
+        })
+        .collect()
 }
 
 pub(super) fn lockfile<P: AsRef<Path>>(

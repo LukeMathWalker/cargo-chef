@@ -280,6 +280,39 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 }
 
 #[test]
+pub fn tests_no_harness() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .lib_package(
+            ".",
+            r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2018"
+
+[[test]]
+name = "foo"
+harness = false
+"#,
+        )
+        .touch("tests/foo.rs")
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), false)
+        .unwrap();
+
+    cook_directory
+        .child("tests")
+        .child("foo.rs")
+        .assert("fn main() {}");
+}
+
+#[test]
 pub fn examples() {
     // Arrange
     let project = CargoWorkspace::new()
