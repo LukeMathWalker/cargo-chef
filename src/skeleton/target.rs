@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum TargetKind {
     Lib { is_proc_macro: bool },
     Bin,
@@ -10,7 +10,7 @@ pub enum TargetKind {
     BuildScript,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Target {
     pub(crate) path: PathBuf,
     pub(crate) kind: TargetKind,

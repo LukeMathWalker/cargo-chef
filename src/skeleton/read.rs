@@ -2,8 +2,9 @@
 use super::ParsedManifest;
 use crate::skeleton::target::{Target, TargetKind};
 use cargo_metadata::{Metadata, Package};
+use std::collections::BTreeSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, anyhow::Error> {
@@ -39,27 +40,29 @@ pub(super) fn manifests<P: AsRef<Path>>(
     base_path: &P,
     metadata: Metadata,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
-    let mut packages = metadata
+    let mut packages: BTreeSet<(BTreeSet<Target>, PathBuf)> = metadata
         .workspace_packages()
         .iter()
         .copied()
         .chain(metadata.root_package())
-        .map(|p| (Some(p), p.manifest_path.clone().into_std_path_buf()))
-        .collect::<Vec<_>>();
+        .map(|p| {
+            (
+                gather_targets(p),
+                p.manifest_path.clone().into_std_path_buf(),
+            )
+        })
+        .collect::<BTreeSet<_>>();
 
     if metadata.root_package().is_none() {
         // At the root, there might be a Cargo.toml manifest with a [workspace] section.
         // However, if this root manifest doesn't contain [package], it is not considered a package
         // by cargo metadata. Therefore, we have to add it manually.
         // Workspaces currently cannot be nested, so this should only happen at the root.
-        packages.push((None, base_path.as_ref().join("Cargo.toml")));
+        packages.insert((Default::default(), base_path.as_ref().join("Cargo.toml")));
     }
 
-    packages.sort_by(|a, b| a.1.cmp(&b.1));
-    packages.dedup();
-
     let mut manifests = vec![];
-    for (package, absolute_path) in packages {
+    for (targets, absolute_path) in packages {
         let contents = fs::read_to_string(&absolute_path)?;
 
         let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
@@ -96,32 +99,25 @@ pub(super) fn manifests<P: AsRef<Path>>(
                 &absolute_path
             )
         })?;
-        let mut targets = package.map(|p| gather_targets(p)).unwrap_or_default();
-        targets.sort_by(|a, b| a.path.cmp(&b.path));
 
         manifests.push(ParsedManifest {
             relative_path,
             contents: intermediate,
-            targets,
+            targets: targets.into_iter().collect(),
         });
     }
 
     Ok(manifests)
 }
-// I started implementing resolving targets through `cargo metadata`, but I wonder if it makes sense. We currently recreate
-fn gather_targets(package: &Package) -> Vec<Target> {
-    let manifest = package.manifest_path.clone().into_std_path_buf();
-    let root_dir = manifest.parent().unwrap();
+
+fn gather_targets(package: &Package) -> BTreeSet<Target> {
+    let manifest_path = package.manifest_path.clone().into_std_path_buf();
+    let root_dir = manifest_path.parent().unwrap();
     package
         .targets
         .iter()
-        .filter_map(|target| {
-            let relative_path = target
-                .src_path
-                .strip_prefix(root_dir)
-                .unwrap()
-                .to_path_buf()
-                .into_std_path_buf();
+        .map(|target| {
+            let relative_path = pathdiff::diff_paths(&target.src_path, root_dir).unwrap();
             let kind = if target.is_bench() {
                 TargetKind::Bench
             } else if target.is_example() {
@@ -139,16 +135,15 @@ fn gather_targets(package: &Package) -> Vec<Target> {
                     is_proc_macro: target
                         .crate_types
                         .iter()
-                        .find(|t| t.as_str() == "proc-macro")
-                        .is_some(),
+                        .any(|t| t.as_str() == "proc-macro"),
                 }
             };
 
-            Some(Target {
+            Target {
                 path: relative_path,
                 kind,
                 name: target.name.clone(),
-            })
+            }
         })
         .collect()
 }
