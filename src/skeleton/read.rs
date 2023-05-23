@@ -2,7 +2,7 @@
 use super::ParsedManifest;
 use crate::skeleton::target::{Target, TargetKind};
 use cargo_metadata::{Metadata, Package};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -40,29 +40,29 @@ pub(super) fn manifests<P: AsRef<Path>>(
     base_path: &P,
     metadata: Metadata,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
-    let mut packages: BTreeSet<(BTreeSet<Target>, PathBuf)> = metadata
+    let mut packages: BTreeMap<PathBuf, BTreeSet<Target>> = metadata
         .workspace_packages()
         .iter()
         .copied()
         .chain(metadata.root_package())
         .map(|p| {
             (
-                gather_targets(p),
                 p.manifest_path.clone().into_std_path_buf(),
+                gather_targets(p),
             )
         })
-        .collect::<BTreeSet<_>>();
+        .collect();
 
     if metadata.root_package().is_none() {
         // At the root, there might be a Cargo.toml manifest with a [workspace] section.
         // However, if this root manifest doesn't contain [package], it is not considered a package
         // by cargo metadata. Therefore, we have to add it manually.
         // Workspaces currently cannot be nested, so this should only happen at the root.
-        packages.insert((Default::default(), base_path.as_ref().join("Cargo.toml")));
+        packages.insert(base_path.as_ref().join("Cargo.toml"), Default::default());
     }
 
     let mut manifests = vec![];
-    for (targets, absolute_path) in packages {
+    for (absolute_path, targets) in packages {
         let contents = fs::read_to_string(&absolute_path)?;
 
         let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
