@@ -1,8 +1,11 @@
 mod read;
+mod target;
 mod version_masking;
 
+use crate::skeleton::target::{Target, TargetKind};
 use crate::OptimisationProfile;
 use anyhow::Context;
+use cargo_manifest::Product;
 use fs_err as fs;
 use globwalk::GlobWalkerBuilder;
 use serde::{Deserialize, Serialize};
@@ -20,11 +23,13 @@ pub struct Manifest {
     /// Relative path with respect to the project root.
     pub relative_path: PathBuf,
     pub contents: String,
+    pub targets: Vec<Target>,
 }
 
 pub(in crate::skeleton) struct ParsedManifest {
     relative_path: PathBuf,
     contents: toml::Value,
+    targets: Vec<Target>,
 }
 
 impl Skeleton {
@@ -85,7 +90,7 @@ impl Skeleton {
             fs::write(config_file_path, config_file.as_str())?;
         }
 
-        let no_std_entrypoint = "#![no_std]
+        const NO_STD_ENTRYPOINT: &str = "#![no_std]
 #![no_main]
 
 #[panic_handler]
@@ -93,6 +98,30 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 ";
+        const NO_STD_HARNESS_ENTRYPOINT: &str = r#"#![no_std]
+#![no_main]
+#![feature(custom_test_frameworks)]
+#![test_runner(test_runner)]
+
+#[no_mangle]
+pub extern "C" fn _init() {}
+
+fn test_runner(_: &[&dyn Fn()]) {}
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+"#;
+
+        let get_test_like_entrypoint = |harness: bool| -> &str {
+            match (no_std, harness) {
+                (true, true) => NO_STD_HARNESS_ENTRYPOINT,
+                (true, false) => NO_STD_ENTRYPOINT,
+                (false, true) => "",
+                (false, false) => "fn main() {}",
+            }
+        };
 
         // Save all manifests to disks
         for manifest in &self.manifests {
@@ -108,129 +137,47 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
 
-            let package_name = parsed_manifest.package.as_ref().map(|v| &v.name);
-            // Create dummy entrypoint files for all binaries
-            for bin in &parsed_manifest.bin.unwrap_or_default() {
-                // Relative to the manifest path
-                let binary_relative_path = bin.path.to_owned().unwrap_or_else(|| match &bin.name {
-                    Some(name) if Some(name) != package_name => {
-                        format!("src/bin/{}.rs", name)
+            let is_harness = |products: &Option<Vec<Product>>, name: &str| -> bool {
+                products
+                    .as_ref()
+                    .and_then(|v| {
+                        v.iter()
+                            .find(|product| product.name.as_deref() == Some(name))
+                            .map(|p| p.harness)
+                    })
+                    .unwrap_or(true)
+            };
+
+            // Create dummy entrypoints for all targets
+            for target in &manifest.targets {
+                let content = match target.kind {
+                    TargetKind::BuildScript => "fn main() {}",
+                    TargetKind::Bin | TargetKind::Example => {
+                        if no_std {
+                            NO_STD_ENTRYPOINT
+                        } else {
+                            "fn main() {}"
+                        }
                     }
-                    _ => "src/main.rs".to_owned(),
-                });
-                let binary_path = parent_directory.join(binary_relative_path);
-                if let Some(parent_directory) = binary_path.parent() {
-                    fs::create_dir_all(parent_directory)?;
-                }
-                if no_std {
-                    fs::write(binary_path, no_std_entrypoint)?;
-                } else {
-                    fs::write(binary_path, "fn main() {}")?;
-                }
-            }
-
-            // Create dummy entrypoint files for for all libraries
-            for lib in &parsed_manifest.lib {
-                // Relative to the manifest path
-                let lib_relative_path = lib.path.as_deref().unwrap_or("src/lib.rs");
-                let lib_path = parent_directory.join(lib_relative_path);
-                if let Some(parent_directory) = lib_path.parent() {
-                    fs::create_dir_all(parent_directory)?;
-                }
-                if no_std && !lib.proc_macro {
-                    fs::write(lib_path, "#![no_std]")?;
-                } else {
-                    fs::write(lib_path, "")?;
-                }
-            }
-
-            // Create dummy entrypoint files for for all benchmarks
-            for bench in &parsed_manifest.bench.unwrap_or_default() {
-                // Relative to the manifest path
-                let bench_name = bench.name.as_ref().context("Missing benchmark name.")?;
-                let bench_relative_path = bench
-                    .path
-                    .clone()
-                    .unwrap_or_else(|| format!("benches/{}.rs", bench_name));
-                let bench_path = parent_directory.join(bench_relative_path);
-                if let Some(parent_directory) = bench_path.parent() {
-                    fs::create_dir_all(parent_directory)?;
-                }
-                fs::write(bench_path, "fn main() {}")?;
-            }
-
-            // Create dummy entrypoint files for for all tests
-            for test in &parsed_manifest.test.unwrap_or_default() {
-                // Relative to the manifest path
-                let test_name = test.name.as_ref().context("Missing test name.")?;
-                let test_relative_path = test
-                    .path
-                    .clone()
-                    .unwrap_or_else(|| format!("tests/{}.rs", test_name));
-                let test_path = parent_directory.join(test_relative_path);
-                if let Some(parent_directory) = test_path.parent() {
-                    fs::create_dir_all(parent_directory)?;
-                }
-                if no_std {
-                    if test.harness {
-                        fs::write(
-                            test_path,
-                            r#"#![no_std]
-#![no_main]
-#![feature(custom_test_frameworks)]
-#![test_runner(test_runner)]
-
-#[no_mangle]
-pub extern "C" fn _init() {}
-
-fn test_runner(_: &[&dyn Fn()]) {}
-
-#[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
-"#,
-                        )?;
-                    } else {
-                        fs::write(test_path, no_std_entrypoint)?;
+                    TargetKind::Lib { is_proc_macro } => {
+                        if no_std && !is_proc_macro {
+                            "#![no_std]"
+                        } else {
+                            ""
+                        }
                     }
-                } else if test.harness {
-                    fs::write(test_path, "")?;
-                } else {
-                    fs::write(test_path, "fn main() {}")?;
-                }
-            }
-
-            // Create dummy entrypoint files for for all examples
-            for example in &parsed_manifest.example.unwrap_or_default() {
-                // Relative to the manifest path
-                let example_name = example.name.as_ref().context("Missing example name.")?;
-                let example_relative_path = example
-                    .path
-                    .clone()
-                    .unwrap_or_else(|| format!("examples/{}.rs", example_name));
-                let example_path = parent_directory.join(example_relative_path);
-                if let Some(parent_directory) = example_path.parent() {
-                    fs::create_dir_all(parent_directory)?;
-                }
-                if no_std {
-                    fs::write(example_path, no_std_entrypoint)?;
-                } else {
-                    fs::write(example_path, "fn main() {}")?;
-                }
-            }
-
-            // Create dummy build script file if specified
-            if let Some(package) = parsed_manifest.package {
-                if let Some(cargo_manifest::Value::String(build_raw_path)) = package.build {
-                    // Relative to the manifest path
-                    let build_relative_path = PathBuf::from(build_raw_path);
-                    let build_path = parent_directory.join(build_relative_path);
-                    if let Some(parent_directory) = build_path.parent() {
-                        fs::create_dir_all(parent_directory)?;
+                    TargetKind::Bench => {
+                        get_test_like_entrypoint(is_harness(&parsed_manifest.bench, &target.name))
                     }
-                    fs::write(build_path, "fn main() {}")?;
+                    TargetKind::Test => {
+                        get_test_like_entrypoint(is_harness(&parsed_manifest.test, &target.name))
+                    }
+                };
+                let path = parent_directory.join(&target.path);
+                if let Some(dir) = path.parent() {
+                    fs::create_dir_all(dir)?;
                 }
+                fs::write(&path, content)?;
             }
         }
         Ok(())
@@ -332,6 +279,7 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
         serialised_manifests.push(Manifest {
             relative_path: manifest.relative_path,
             contents,
+            targets: manifest.targets,
         });
     }
     Ok(serialised_manifests)

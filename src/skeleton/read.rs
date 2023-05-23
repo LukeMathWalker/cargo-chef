@@ -1,9 +1,10 @@
 //! Logic to read all the files required to build a caching layer for a project.
 use super::ParsedManifest;
-use cargo_metadata::Metadata;
-use std::collections::BTreeSet;
+use crate::skeleton::target::{Target, TargetKind};
+use cargo_metadata::{Metadata, Package};
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, anyhow::Error> {
@@ -39,20 +40,29 @@ pub(super) fn manifests<P: AsRef<Path>>(
     base_path: &P,
     metadata: Metadata,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
-    let manifest_paths = metadata
+    let mut packages: BTreeMap<PathBuf, BTreeSet<Target>> = metadata
         .workspace_packages()
         .iter()
-        .map(|package| package.manifest_path.clone().into_std_path_buf())
-        .chain(
-            metadata
-                .root_package()
-                .map(|p| p.clone().manifest_path.into_std_path_buf())
-                .or_else(|| Some(base_path.as_ref().join("Cargo.toml"))),
-        )
-        .collect::<BTreeSet<_>>();
+        .copied()
+        .chain(metadata.root_package())
+        .map(|p| {
+            (
+                p.manifest_path.clone().into_std_path_buf(),
+                gather_targets(p),
+            )
+        })
+        .collect();
+
+    if metadata.root_package().is_none() {
+        // At the root, there might be a Cargo.toml manifest with a [workspace] section.
+        // However, if this root manifest doesn't contain [package], it is not considered a package
+        // by cargo metadata. Therefore, we have to add it manually.
+        // Workspaces currently cannot be nested, so this should only happen at the root.
+        packages.insert(base_path.as_ref().join("Cargo.toml"), Default::default());
+    }
 
     let mut manifests = vec![];
-    for absolute_path in manifest_paths {
+    for (absolute_path, targets) in packages {
         let contents = fs::read_to_string(&absolute_path)?;
 
         let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
@@ -89,13 +99,53 @@ pub(super) fn manifests<P: AsRef<Path>>(
                 &absolute_path
             )
         })?;
+
         manifests.push(ParsedManifest {
             relative_path,
             contents: intermediate,
+            targets: targets.into_iter().collect(),
         });
     }
 
     Ok(manifests)
+}
+
+fn gather_targets(package: &Package) -> BTreeSet<Target> {
+    let manifest_path = package.manifest_path.clone().into_std_path_buf();
+    let root_dir = manifest_path.parent().unwrap();
+    package
+        .targets
+        .iter()
+        .map(|target| {
+            let relative_path = pathdiff::diff_paths(&target.src_path, root_dir).unwrap();
+            let kind = if target.is_bench() {
+                TargetKind::Bench
+            } else if target.is_example() {
+                TargetKind::Example
+            } else if target.is_test() {
+                TargetKind::Test
+            } else if target.is_bin() {
+                TargetKind::Bin
+            } else if target.is_custom_build() {
+                TargetKind::BuildScript
+            } else {
+                // If a library has custom crate type (e.g. "cdylib"), it's kind will be "cdylib"
+                // instead of just "lib". Therefore, we assume that this target is a library.
+                TargetKind::Lib {
+                    is_proc_macro: target
+                        .crate_types
+                        .iter()
+                        .any(|t| t.as_str() == "proc-macro"),
+                }
+            };
+
+            Target {
+                path: relative_path,
+                kind,
+                name: target.name.clone(),
+            }
+        })
+        .collect()
 }
 
 pub(super) fn lockfile<P: AsRef<Path>>(
