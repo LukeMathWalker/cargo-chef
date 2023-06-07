@@ -21,7 +21,7 @@ jobs:
       -
         id: set-matrix
         run: |
-          echo -n '::set-output name=matrix::[' \
+          (echo -n 'matrix=[' \
           && curl --silent https://raw.githubusercontent.com/docker-library/official-images/master/library/rust \
             | grep -E Tags: \
             | cut -d ' ' -f 2- \
@@ -29,7 +29,7 @@ jobs:
             | sed 's/\(.*\)/"\1",/g' \
             | tr '\n' ' ' \
             | sed '$ s/..$//' \
-          && echo ']'
+          && echo ']') >> "$GITHUB_OUTPUT"
   build_and_push:
     name: Build and push
     needs: [rust_image_tag_matrix]
@@ -41,16 +41,16 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       -
         name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
       -
         name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -61,14 +61,14 @@ jobs:
         run: |-
           git fetch --tags
           VER=$(git tag --sort="-v:refname" | head -n 1 | cut -d"v" -f2)
-          echo ::set-output name=result::$VER
+          echo "result=$VER" >> "$GITHUB_OUTPUT"
       -
         # Check if version matches ^\d+\.\d+\.\d+$
         name: Determine if release version
         id: is_release_version
         run: |
           if [[ ${{ steps.package_version.outputs.result }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo ::set-output name=result::true
+            echo "result=true" >> "$GITHUB_OUTPUT"
           fi
       -
         name: Determine if duplicated
@@ -79,9 +79,9 @@ jobs:
 
           if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $CHEF_IMAGE >/dev/null; then
             echo "There is already a pushed image with ${CHEF_IMAGE_TAG} as tag. Skipping."
-            echo ::set-output name=result::true
+            echo "result=true" >> "$GITHUB_OUTPUT"
           else
-            echo ::set-output name=result::false
+            echo "result=false" >> "$GITHUB_OUTPUT"
           fi
       -
         name: Build and push without `latest` tag
