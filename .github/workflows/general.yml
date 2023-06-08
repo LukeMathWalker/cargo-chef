@@ -40,7 +40,10 @@ jobs:
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
+      - name: Install cargo-tarpaulin
+        uses: taiki-e/install-action@v2
         with:
-          args: '--ignore-tests'
+          tool: cargo-tarpaulin
+          checksum: true
+      - name: Run cargo-tarpaulin
+        run: cargo tarpaulin --ignore-tests
