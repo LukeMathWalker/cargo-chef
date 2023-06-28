@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
 
+permissions:
+  contents: read
+
 env:
   RUST_IMAGE_TAG: latest
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}

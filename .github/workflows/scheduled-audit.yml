@@ -2,6 +2,11 @@ name: Security audit
 on:
   schedule:
     - cron: '0 0 * * *'
+
+permissions:
+  issues: write
+  checks: write
+
 jobs:
   audit:
     runs-on: ubuntu-latest

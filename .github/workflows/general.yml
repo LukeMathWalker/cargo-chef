@@ -2,6 +2,9 @@ name: Rust
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test
