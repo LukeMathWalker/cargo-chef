@@ -40,6 +40,7 @@ pub struct CookArgs {
     pub offline: bool,
     pub locked: bool,
     pub frozen: bool,
+    pub verbose: bool,
     pub timings: bool,
     pub no_std: bool,
     pub bin: Option<String>,
@@ -104,6 +105,7 @@ fn build_dependencies(args: &CookArgs) {
         offline,
         frozen,
         locked,
+        verbose,
         timings,
         bin,
         no_std: _no_std,
@@ -176,6 +178,9 @@ fn build_dependencies(args: &CookArgs) {
     }
     if *locked {
         command_with_args.arg("--locked");
+    }
+    if *verbose {
+        command_with_args.arg("--verbose");
     }
     if *timings {
         command_with_args.arg("--timings");

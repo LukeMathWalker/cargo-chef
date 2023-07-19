@@ -123,10 +123,13 @@ pub struct Cook {
     /// Build offline.
     #[clap(long)]
     offline: bool,
-    /// Build locked. Throw if Cargo.lock is not up to date
+    /// Require Cargo.lock is up to date
     #[clap(long)]
     locked: bool,
-    /// Build frozen. Locked, but also don't access network
+    /// Use verbose output (-vv very verbose/build.rs output)
+    #[clap(long)]
+    verbose: bool,
+    /// Require Cargo.lock and cache are up to date
     #[clap(long)]
     frozen: bool,
     /// Report build timings.
@@ -177,6 +180,7 @@ fn _main() -> Result<(), anyhow::Error> {
             offline,
             frozen,
             locked,
+            verbose,
             timings,
             no_std,
             bin,
@@ -277,6 +281,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     bin,
                     locked,
                     frozen,
+                    verbose,
                 })
                 .context("Failed to cook recipe.")?;
         }
