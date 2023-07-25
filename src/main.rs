@@ -126,7 +126,7 @@ pub struct Cook {
     /// Require Cargo.lock is up to date
     #[clap(long)]
     locked: bool,
-    /// Use verbose output (-vv very verbose/build.rs output)
+    /// Use verbose output
     #[clap(long, short = 'v')]
     verbose: bool,
     /// Require Cargo.lock and cache are up to date
