@@ -43,7 +43,7 @@ pub struct CookArgs {
     pub verbose: bool,
     pub timings: bool,
     pub no_std: bool,
-    pub bin: Option<String>,
+    pub bin: Option<Vec<String>>,
     pub bins: bool,
 }
 
@@ -169,7 +169,9 @@ fn build_dependencies(args: &CookArgs) {
         }
     }
     if let Some(binary_target) = bin {
-        command_with_args.arg("--bin").arg(binary_target);
+        for binary_target in binary_target {
+            command_with_args.arg("--bin").arg(binary_target);
+        }
     }
     if *workspace {
         command_with_args.arg("--workspace");

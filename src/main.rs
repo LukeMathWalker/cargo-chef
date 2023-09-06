@@ -138,10 +138,9 @@ pub struct Cook {
     /// Cook using `#[no_std]` configuration  (does not affect `proc-macro` crates)
     #[clap(long)]
     no_std: bool,
-    /// When --bin is specified, `cargo-chef` will ignore all members of the workspace
-    /// that are not necessary to successfully compile the specific binary.
+    /// Build only the specified binary. This can be specified with multiple binaries.
     #[clap(long)]
-    bin: Option<String>,
+    bin: Option<Vec<String>>,
     /// Build all binaries and ignore everything else.
     #[clap(long)]
     bins: bool,
