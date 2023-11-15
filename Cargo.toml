@@ -34,6 +34,7 @@ fs-err = "2.5.0"
 toml = { version = "0.7", features = ["preserve_order"] }
 expect-test = "1.1.0"
 cargo_metadata = "0.15"
+std = { package = "eyra", version = "0" }
 
 [dev-dependencies]
 assert_cmd = "2"
