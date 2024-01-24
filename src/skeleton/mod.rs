@@ -295,15 +295,20 @@ fn extract_cargo_metadata(path: &Path) -> Result<cargo_metadata::Metadata, anyho
 
 /// If the top-level `Cargo.toml` has a `members` field, replace it with
 /// a list consisting of just the specified member.
+///
+/// Also deletes the `default-members` field because it does not play nicely
+/// with a modified `members` field and has no effect on cooking the final receipe.
 fn ignore_all_members_except(manifests: &mut [ParsedManifest], member: String) {
     let workspace_toml = manifests
         .iter_mut()
         .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"));
 
-    if let Some(members) = workspace_toml
-        .and_then(|toml| toml.contents.get_mut("workspace"))
-        .and_then(|workspace| workspace.get_mut("members"))
-    {
-        *members = toml::Value::Array(vec![toml::Value::String(member)]);
+    if let Some(workspace) = workspace_toml.and_then(|toml| toml.contents.get_mut("workspace")) {
+        if let Some(members) = workspace.get_mut("members") {
+            *members = toml::Value::Array(vec![toml::Value::String(member)]);
+        }
+        if let Some(workspace) = workspace.as_table_mut() {
+            workspace.remove("default-members");
+        }
     }
 }
