@@ -1,6 +1,7 @@
 //! Logic to read all the files required to build a caching layer for a project.
 use super::ParsedManifest;
 use crate::skeleton::target::{Target, TargetKind};
+use crate::RustToolchainFile;
 use cargo_metadata::{Metadata, Package};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -161,6 +162,34 @@ pub(super) fn lockfile<P: AsRef<Path>>(
                 return Err(anyhow::Error::from(e).context("Failed to read Cargo.lock file."));
             }
             Ok(None)
+        }
+    }
+}
+
+pub(super) fn rust_toolchain<P: AsRef<Path>>(
+    base_path: &P,
+) -> Result<Option<(RustToolchainFile, String)>, anyhow::Error> {
+    // `rust-toolchain` takes precedence over `rust-toolchain.toml`
+    if let Some(file) = read_rust_toolchain(&base_path.as_ref().join("rust-toolchain"))? {
+        return Ok(Some((RustToolchainFile::Bare, file)));
+    }
+
+    if let Some(file) = read_rust_toolchain(&base_path.as_ref().join("rust-toolchain.toml"))? {
+        return Ok(Some((RustToolchainFile::Toml, file)));
+    }
+
+    Ok(None)
+}
+
+fn read_rust_toolchain(path: &Path) -> Result<Option<String>, anyhow::Error> {
+    match fs::read_to_string(path) {
+        Ok(file) => Ok(Some(file)),
+        Err(e) => {
+            if std::io::ErrorKind::NotFound != e.kind() {
+                Err(anyhow::Error::from(e).context("Failed to read rust toolchain file."))
+            } else {
+                Ok(None)
+            }
         }
     }
 }

@@ -16,6 +16,13 @@ pub struct Skeleton {
     pub manifests: Vec<Manifest>,
     pub config_file: Option<String>,
     pub lock_file: Option<String>,
+    pub rust_toolchain_file: Option<(RustToolchainFile, String)>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+pub enum RustToolchainFile {
+    Bare,
+    Toml,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -48,6 +55,7 @@ impl Skeleton {
         }
 
         let mut lock_file = read::lockfile(&base_path)?;
+        let rust_toolchain_file = read::rust_toolchain(&base_path)?;
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
 
@@ -62,6 +70,7 @@ impl Skeleton {
             manifests: serialised_manifests,
             config_file,
             lock_file,
+            rust_toolchain_file,
         })
     }
 
@@ -80,6 +89,16 @@ impl Skeleton {
         if let Some(lock_file) = &self.lock_file {
             let lock_file_path = base_path.join("Cargo.lock");
             fs::write(lock_file_path, lock_file.as_str())?;
+        }
+
+        // Save rust-toolchain or rust-toolchain.toml to disk, if available
+        if let Some((file_kind, content)) = &self.rust_toolchain_file {
+            let file_name = match file_kind {
+                RustToolchainFile::Bare => "rust-toolchain",
+                RustToolchainFile::Toml => "rust-toolchain.toml",
+            };
+            let path = base_path.join(file_name);
+            fs::write(path, content.as_str())?;
         }
 
         // save config file to disk, if available
