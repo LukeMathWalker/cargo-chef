@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-chef"
-version = "0.1.62"
+version = "0.1.63"
 dependencies = [
  "anyhow",
  "assert_cmd",
