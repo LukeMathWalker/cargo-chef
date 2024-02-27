@@ -138,10 +138,12 @@ pub struct Cook {
     /// Cook using `#[no_std]` configuration  (does not affect `proc-macro` crates)
     #[clap(long)]
     no_std: bool,
-    /// When --bin is specified, `cargo-chef` will ignore all members of the workspace
-    /// that are not necessary to successfully compile the specific binary.
+    /// Build only the specified binary. This can be specified with multiple binaries.
     #[clap(long)]
-    bin: Option<String>,
+    bin: Option<Vec<String>>,
+    /// Build all binaries and ignore everything else.
+    #[clap(long)]
+    bins: bool,
     /// Run `cargo zigbuild` instead of `cargo build`. You need to install
     /// the `cargo-zigbuild` crate and the Zig compiler toolchain separately
     #[clap(long)]
@@ -185,6 +187,7 @@ fn _main() -> Result<(), anyhow::Error> {
             no_std,
             bin,
             zigbuild,
+            bins,
         }) => {
             if atty::is(atty::Stream::Stdout) {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -282,6 +285,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     locked,
                     frozen,
                     verbose,
+                    bins,
                 })
                 .context("Failed to cook recipe.")?;
         }
