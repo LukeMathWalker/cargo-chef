@@ -37,6 +37,7 @@ fn mask_local_versions_in_lockfile(
                     .get("name")
                     .map(|name| local_package_names.contains(name))
                     .unwrap_or_default()
+                    && package.get("source").is_none()
             })
             // Mask the version
             .for_each(|package| {
