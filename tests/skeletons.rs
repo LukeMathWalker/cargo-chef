@@ -1367,6 +1367,97 @@ version = "0.2.1"
     );
 }
 
+#[test]
+pub fn rust_toolchain() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+"#,
+        )
+        .touch("src/main.rs")
+        .touch("Cargo.lock")
+        .file("rust-toolchain", "1.75.0")
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), false)
+        .unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
+        .child("src")
+        .child("main.rs")
+        .assert("fn main() {}");
+    cook_directory
+        .child("Cargo.lock")
+        .assert(predicate::path::exists());
+    cook_directory.child("rust-toolchain").assert("1.75.0");
+}
+
+#[test]
+pub fn rust_toolchain_toml() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+"#,
+        )
+        .touch("src/main.rs")
+        .touch("Cargo.lock")
+        .file(
+            "rust-toolchain.toml",
+            r#"
+[toolchain]
+channel = "1.75.0"
+"#,
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), false)
+        .unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+    let manifest = &skeleton.manifests[0];
+    assert_eq!(Path::new("Cargo.toml"), manifest.relative_path);
+    cook_directory
+        .child("src")
+        .child("main.rs")
+        .assert("fn main() {}");
+    cook_directory
+        .child("Cargo.lock")
+        .assert(predicate::path::exists());
+    cook_directory.child("rust-toolchain.toml").assert(
+        r#"[toolchain]
+channel = "1.75.0"
+"#,
+    );
+}
 fn check(actual: &str, expect: Expect) {
     let actual = actual.to_string();
     expect.assert_eq(&actual);
