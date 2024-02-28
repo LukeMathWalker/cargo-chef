@@ -6,6 +6,7 @@ use clap::crate_version;
 use clap::Parser;
 use fs_err as fs;
 use std::collections::HashSet;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 
 /// Cache the dependencies of your Rust project.
@@ -189,7 +190,7 @@ fn _main() -> Result<(), anyhow::Error> {
             zigbuild,
             bins,
         }) => {
-            if atty::is(atty::Stream::Stdout) {
+            if std::io::stdout().is_terminal() {
                 eprintln!("WARNING stdout appears to be a terminal.");
                 eprintln!(
                     "cargo-chef is not meant to be run in an interactive environment \
