@@ -149,7 +149,9 @@ pub struct Cook {
     /// the `cargo-zigbuild` crate and the Zig compiler toolchain separately
     #[clap(long)]
     zigbuild: bool,
-    /// Do not perform any kind of build, only prepare the source for a build.
+    /// Modify the current workspace to maximise cache reuse, but don't invoke `cargo build`.
+    /// This option exist to leverage `cargo-chef` when trying to cache dependencies in Rust
+    /// projects that rely on a custom build system (i.e. not `cargo`).
     #[clap(long)]
     no_build: bool,
 }
