@@ -149,6 +149,9 @@ pub struct Cook {
     /// the `cargo-zigbuild` crate and the Zig compiler toolchain separately
     #[clap(long)]
     zigbuild: bool,
+    /// Do not perform any kind of build, only prepare the source for a build.
+    #[clap(long)]
+    no_build: bool,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -189,6 +192,7 @@ fn _main() -> Result<(), anyhow::Error> {
             bin,
             zigbuild,
             bins,
+            no_build,
         }) => {
             if std::io::stdout().is_terminal() {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -235,12 +239,13 @@ fn _main() -> Result<(), anyhow::Error> {
                 (false, Some(custom_profile)) => OptimisationProfile::Other(custom_profile),
                 (true, Some(_)) => Err(anyhow!("You specified both --release and --profile arguments. Please remove one of them, or both"))?
             };
-            let command = match (check, clippy, zigbuild) {
-                (true, false, false) => CommandArg::Check,
-                (false, true, false) => CommandArg::Clippy,
-                (false, false, true) => CommandArg::Zigbuild,
-                (false, false, false) => CommandArg::Build,
-                _ => Err(anyhow!("Only one (or none) of the  `clippy`, `check` and `zigbuild` arguments are allowed. Please remove some of them, or all"))?,
+            let command = match (check, clippy, zigbuild, no_build) {
+                (true, false, false, false) => CommandArg::Check,
+                (false, true, false, false) => CommandArg::Clippy,
+                (false, false, true, false) => CommandArg::Zigbuild,
+                (false, false, false, true) => CommandArg::NoBuild,
+                (false, false, false, false) => CommandArg::Build,
+                _ => Err(anyhow!("Only one (or none) of the  `clippy`, `check`, `zigbuild`, and `no-build` arguments are allowed. Please remove some of them, or all"))?,
             };
 
             let default_features = if no_default_features {
@@ -287,6 +292,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     frozen,
                     verbose,
                     bins,
+                    no_build,
                 })
                 .context("Failed to cook recipe.")?;
         }
