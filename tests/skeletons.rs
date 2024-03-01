@@ -1616,12 +1616,12 @@ uuid = { version = "=0.8.0", features = ["v4"] }
             .first()
             .unwrap()
             .contents
-            .split("=")
+            .split('=')
             .last()
             .unwrap()
             .replace(['[', ']', '"'], "")
             .trim()
-            .split(",")
+            .split(',')
             .map(|w| w.trim().to_string())
             .collect()
     }
