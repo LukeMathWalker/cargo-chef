@@ -1672,6 +1672,9 @@ uuid = { version = "=0.8.0", features = ["v4"] }
 
     let project_f = Skeleton::derive(&path, Some("project_f".into())).unwrap();
     assert_eq!(manifest_content_dirs(&project_f), vec!["project_f"]);
+
+    // TODO: If multiple binaries are valid in `cargo chef prepare`, then testing
+    // with multiple binaries is probably a good idea here!
 }
 
 struct BuiltWorkspace {

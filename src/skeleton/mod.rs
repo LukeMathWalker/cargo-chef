@@ -9,6 +9,7 @@ use cargo_manifest::Product;
 use cargo_metadata::Metadata;
 use fs_err as fs;
 use globwalk::GlobWalkerBuilder;
+use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -337,14 +338,13 @@ fn ignore_all_members_except(
                 .find(|pkg| pkg.name == member)
             {
                 // Make this a relative path to the workspace, and remove the `Cargo.toml` child.
-                // XXX: Do we need to strip the prefix? Or can we use an absolute path?
-                let new_member_path = pkg
-                    .manifest_path
-                    .strip_prefix(workspace_root)
-                    .ok()
-                    .and_then(|mp| mp.parent());
+                let member_cargo_path = diff_paths(pkg.manifest_path.as_os_str(), workspace_root);
+                let member_workspace_path = member_cargo_path
+                    .as_ref()
+                    .and_then(|path| path.parent())
+                    .and_then(|dir| dir.to_str());
 
-                if let Some(member_path) = new_member_path {
+                if let Some(member_path) = member_workspace_path {
                     *members =
                         toml::Value::Array(vec![toml::Value::String(member_path.to_string())]);
                 }
