@@ -39,7 +39,7 @@ pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, an
 
 pub(super) fn manifests<P: AsRef<Path>>(
     base_path: &P,
-    metadata: Metadata,
+    metadata: &Metadata,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
     let mut packages: BTreeMap<PathBuf, BTreeSet<Target>> = metadata
         .workspace_packages()
