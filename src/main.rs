@@ -11,13 +11,13 @@ use std::path::PathBuf;
 
 /// Cache the dependencies of your Rust project.
 #[derive(Parser)]
-#[clap(
+#[command(
     bin_name = "cargo",
     version = crate_version!(),
     author = "Luca Palmieri <rust@lpalmieri.com>"
 )]
 pub struct Cli {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     command: CargoInvocation,
 }
 
@@ -26,13 +26,13 @@ pub enum CargoInvocation {
     // All `cargo` subcommands receive their name (e.g. `chef` as the first command).
     // See https://github.com/rust-lang/rustfmt/pull/3569
     Chef {
-        #[clap(subcommand)]
+        #[command(subcommand)]
         command: Command,
     },
 }
 
 #[derive(Parser)]
-#[clap(
+#[command(
     version = crate_version!(),
     author = "Luca Palmieri <rust@lpalmieri.com>"
 )]
@@ -53,12 +53,12 @@ pub struct Prepare {
     /// The filepath used to save the computed recipe.
     ///
     /// It defaults to "recipe.json".
-    #[clap(long, default_value = "recipe.json")]
+    #[arg(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
 
     /// When --bin is specified, `cargo-chef` will ignore all members of the workspace
     /// that are not necessary to successfully compile the specific binary.
-    #[clap(long)]
+    #[arg(long)]
     bin: Option<String>,
 }
 
@@ -67,87 +67,87 @@ pub struct Cook {
     /// The filepath `cook` should be reading the recipe from.
     ///
     /// It defaults to "recipe.json".
-    #[clap(long, default_value = "recipe.json")]
+    #[arg(long, default_value = "recipe.json")]
     recipe_path: PathBuf,
     /// Build artifacts with the specified profile.
-    #[clap(long)]
+    #[arg(long)]
     profile: Option<String>,
     /// Build in release mode.
-    #[clap(long)]
+    #[arg(long)]
     release: bool,
     /// Run `cargo check` instead of `cargo build`. Primarily useful for speeding up your CI pipeline.
-    #[clap(long)]
+    #[arg(long)]
     check: bool,
     /// Run `cargo clippy` instead of `cargo build`. Primarily useful for speeding up your CI pipeline. Requires clippy to be installed.
-    #[clap(long)]
+    #[arg(long)]
     clippy: bool,
     /// Build for the target triple. The flag can be passed multiple times to cook for multiple targets.
-    #[clap(long)]
+    #[arg(long)]
     target: Option<Vec<String>>,
     /// Directory for all generated artifacts.
-    #[clap(long, env = "CARGO_TARGET_DIR")]
+    #[arg(long, env = "CARGO_TARGET_DIR")]
     target_dir: Option<PathBuf>,
     /// Do not activate the `default` feature.
-    #[clap(long)]
+    #[arg(long)]
     no_default_features: bool,
     /// Enable all features.
-    #[clap(long)]
+    #[arg(long)]
     all_features: bool,
     /// Space or comma separated list of features to activate.
-    #[clap(long, value_delimiter = ',')]
+    #[arg(long, value_delimiter = ',')]
     features: Option<Vec<String>>,
     /// Unstable feature to activate (only available on the nightly channel).
-    #[clap(short = 'Z')]
+    #[arg(short = 'Z')]
     unstable_features: Option<Vec<String>>,
     /// Build all benches
-    #[clap(long)]
+    #[arg(long)]
     benches: bool,
     /// Build all tests
-    #[clap(long)]
+    #[arg(long)]
     tests: bool,
     /// Build all examples
-    #[clap(long)]
+    #[arg(long)]
     examples: bool,
     /// Build all targets.
     /// This is equivalent to specifying `--tests --benches --examples`.
-    #[clap(long)]
+    #[arg(long)]
     all_targets: bool,
     /// Path to Cargo.toml
-    #[clap(long)]
+    #[arg(long)]
     manifest_path: Option<PathBuf>,
     /// Package(s) to build (see `cargo help pkgid`)
-    #[clap(long, short = 'p')]
+    #[arg(long, short = 'p')]
     package: Option<Vec<String>>,
     /// Build all members in the workspace.
-    #[clap(long)]
+    #[arg(long)]
     workspace: bool,
     /// Build offline.
-    #[clap(long)]
+    #[arg(long)]
     offline: bool,
     /// Require Cargo.lock is up to date
-    #[clap(long)]
+    #[arg(long)]
     locked: bool,
     /// Use verbose output
-    #[clap(long, short = 'v')]
+    #[arg(long, short = 'v')]
     verbose: bool,
     /// Require Cargo.lock and cache are up to date
-    #[clap(long)]
+    #[arg(long)]
     frozen: bool,
     /// Report build timings.
-    #[clap(long)]
+    #[arg(long)]
     timings: bool,
     /// Cook using `#[no_std]` configuration  (does not affect `proc-macro` crates)
-    #[clap(long)]
+    #[arg(long)]
     no_std: bool,
     /// Build only the specified binary. This can be specified with multiple binaries.
-    #[clap(long)]
+    #[arg(long)]
     bin: Option<Vec<String>>,
     /// Build all binaries and ignore everything else.
-    #[clap(long)]
+    #[arg(long)]
     bins: bool,
     /// Run `cargo zigbuild` instead of `cargo build`. You need to install
     /// the `cargo-zigbuild` crate and the Zig compiler toolchain separately
-    #[clap(long)]
+    #[arg(long)]
     zigbuild: bool,
     /// Modify the current workspace to maximise cache reuse, but don't invoke `cargo build`.
     /// This option exist to leverage `cargo-chef` when trying to cache dependencies in Rust
