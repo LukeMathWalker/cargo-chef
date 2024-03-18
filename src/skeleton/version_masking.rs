@@ -73,6 +73,11 @@ fn mask_local_dependency_versions(
             if let Some(dependencies) = toml_value.get_mut(dependency_key) {
                 if let Some(dependencies) = dependencies.as_table_mut() {
                     for (key, dependency) in dependencies {
+                        if dependency.get("path").is_none() {
+                            // This dependency is not local
+                            continue;
+                        }
+
                         let mut must_mark_version = false;
 
                         if let Some(package_name) = dependency.get("package") {
