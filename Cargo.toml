@@ -28,9 +28,9 @@ env_logger = "0.10"
 globwalk = "0.8.0"
 anyhow = "1.0.33"
 pathdiff = "0.2.0"
-cargo-manifest = "0.9"
+cargo-manifest = "0.13"
 fs-err = "2.5.0"
-toml = { version = "0.7", features = ["preserve_order"] }
+toml = { version = "0.8", features = ["preserve_order"] }
 expect-test = "1.1.0"
 cargo_metadata = "0.15"
 
