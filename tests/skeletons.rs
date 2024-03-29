@@ -675,23 +675,14 @@ version = "1.8.1"
             [[bin]]
             path = "src/main.rs"
             name = "test-dummy"
-            test = true
-            doctest = true
-            bench = true
-            doc = true
             plugin = false
             proc-macro = false
-            harness = true
             required-features = []
 
             [package]
             name = "project-a"
             edition = "2018"
             version = "0.0.1"
-            autobins = true
-            autoexamples = true
-            autotests = true
-            autobenches = true
 
             [dependencies.either]
             version = "=1.8.1"
@@ -710,10 +701,6 @@ version = "1.8.1"
             name = "project_b"
             edition = "2018"
             version = "0.0.1"
-            autobins = true
-            autoexamples = true
-            autotests = true
-            autobenches = true
 
             [dependencies.either]
             version = "=1.8.1"
@@ -723,13 +710,8 @@ version = "1.8.1"
             path = "../project-a"
 
             [lib]
-            test = true
-            doctest = true
-            bench = true
-            doc = true
             plugin = false
             proc-macro = false
-            harness = true
             required-features = []
             crate-type = ["cdylib"]
         "#]],
@@ -882,23 +864,14 @@ version = "1.8.1"
             [[bin]]
             path = "src/main.rs"
             name = "test-dummy"
-            test = true
-            doctest = true
-            bench = true
-            doc = true
             plugin = false
             proc-macro = false
-            harness = true
             required-features = []
 
             [package]
             name = "project_a"
             edition = "2018"
             version = "0.0.1"
-            autobins = true
-            autoexamples = true
-            autotests = true
-            autobenches = true
 
             [dependencies.either]
             version = "=1.8.1"
@@ -917,21 +890,12 @@ version = "1.8.1"
             name = "project_b"
             edition = "2018"
             version = "0.0.1"
-            autobins = true
-            autoexamples = true
-            autotests = true
-            autobenches = true
 
             [dependencies]
 
             [lib]
-            test = true
-            doctest = true
-            bench = true
-            doc = true
             plugin = false
             proc-macro = false
-            harness = true
             required-features = []
             crate-type = ["cdylib"]
         "#]],
@@ -1062,13 +1026,8 @@ checksum = "3df10e9ed85b51fa3434bc5676eaa90479ce14ac3e101c8ce07e1bb5ef0b7255"
             [[bin]]
             path = "src/main.rs"
             name = "binary"
-            test = true
-            doctest = true
-            bench = true
-            doc = true
             plugin = false
             proc-macro = false
-            harness = true
             edition = "2021"
             required-features = []
 
@@ -1076,10 +1035,6 @@ checksum = "3df10e9ed85b51fa3434bc5676eaa90479ce14ac3e101c8ce07e1bb5ef0b7255"
             name = "binary"
             edition = "2021"
             version = "0.0.1"
-            autobins = true
-            autoexamples = true
-            autotests = true
-            autobenches = true
 
             [dependencies]
             without = "=0.1.0"
@@ -1103,23 +1058,14 @@ checksum = "3df10e9ed85b51fa3434bc5676eaa90479ce14ac3e101c8ce07e1bb5ef0b7255"
             name = "without"
             edition = "2021"
             version = "0.0.1"
-            autobins = true
-            autoexamples = true
-            autotests = true
-            autobenches = true
 
             [dependencies]
 
             [lib]
             path = "src/lib.rs"
             name = "without"
-            test = true
-            doctest = true
-            bench = true
-            doc = true
             plugin = false
             proc-macro = false
-            harness = true
             edition = "2021"
             required-features = []
             crate-type = ["rlib"]
@@ -1363,21 +1309,12 @@ anyhow = { workspace = true }
             [[bin]]
             path = "src/main.rs"
             name = "project_a"
-            test = true
-            doctest = true
-            bench = true
-            doc = true
             plugin = false
             proc-macro = false
-            harness = true
             required-features = []
 
             [package]
             name = "project_a"
-            autobins = true
-            autoexamples = true
-            autotests = true
-            autobenches = true
 
             [package.edition]
             workspace = true
@@ -1404,10 +1341,6 @@ anyhow = { workspace = true }
 
             [package]
             name = "project_b"
-            autobins = true
-            autoexamples = true
-            autotests = true
-            autobenches = true
 
             [package.edition]
             workspace = true
@@ -1425,13 +1358,8 @@ anyhow = { workspace = true }
             workspace = true
 
             [lib]
-            test = true
-            doctest = true
-            bench = true
-            doc = true
             plugin = false
             proc-macro = false
-            harness = true
             required-features = []
             crate-type = ["cdylib"]
         "#]],
@@ -1522,37 +1450,28 @@ version = "0.2.1"
     check(
         &skeleton.manifests[1].contents,
         expect![[r#"
-        bin = []
-        bench = []
-        test = []
-        example = []
+            bin = []
+            bench = []
+            test = []
+            example = []
 
-        [package]
-        name = "a"
-        version = "0.0.1"
-        autobins = true
-        autoexamples = true
-        autotests = true
-        autobenches = true
+            [package]
+            name = "a"
+            version = "0.0.1"
 
-        [dependencies.c]
-        version = "0.0.1"
-        path = "../b"
-        package = "b"
+            [dependencies.c]
+            version = "0.0.1"
+            path = "../b"
+            package = "b"
 
-        [lib]
-        path = "src/lib.rs"
-        name = "a"
-        test = true
-        doctest = true
-        bench = true
-        doc = true
-        plugin = false
-        proc-macro = false
-        harness = true
-        required-features = []
-        crate-type = ["rlib"]
-    "#]],
+            [lib]
+            path = "src/lib.rs"
+            name = "a"
+            plugin = false
+            proc-macro = false
+            required-features = []
+            crate-type = ["rlib"]
+        "#]],
     );
 }
 
