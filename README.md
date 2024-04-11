@@ -213,7 +213,7 @@ A common alternative is to load a minimal `main.rs` into a container with `Cargo
 
 ### Limitations and caveats:
 
-- `cargo cook` and `cargo build` must be executed from the same working directory. If you examine the `*.d` files under `target/debug/deps` for one of your projects using `cat` you will notice that they contain absolute paths referring to the project `target` directory. If moved around, `cargo` will not leverage them as cached dependencies;
+- `cargo chef cook` and `cargo build` must be executed from the same working directory. If you examine the `*.d` files under `target/debug/deps` for one of your projects using `cat` you will notice that they contain absolute paths referring to the project `target` directory. If moved around, `cargo` will not leverage them as cached dependencies;
 - `cargo build` will build local dependencies (outside of the current project) from scratch, even if they are unchanged, due to the reliance of its fingerprinting logic on timestamps (see [this _long_ issue on `cargo`'s repository](https://github.com/rust-lang/cargo/issues/2644));
 
 ## License
