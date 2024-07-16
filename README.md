@@ -199,6 +199,88 @@ USER myuser
 CMD ["/usr/local/bin/app"]
 ```
 
+### Crate index caching
+
+Since the final `cargo build` command requires a complete local crate index, you
+might want to cache a local crate index when building against a large
+[Cargo workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html),
+especially if a non-target package in your workspace has a large `git`
+dependency that must be cloned during local crate index generation.
+
+A sample Dockerfile looks like this:
+
+```dockerfile
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+WORKDIR /app
+
+FROM chef AS planner
+ARG BIN
+COPY . .
+# Prepare recipe one directory up to simplify local crate index caching.
+RUN cargo chef prepare --bin "$BIN" --recipe-path ../recipe.json
+# Delete everything not required to build complete local crate index, to avoid
+# invalidating local crate index cache on code changes or recipe updates.
+RUN find -type f \! \( -name 'Cargo.toml' -o -name 'Cargo.lock' \) -delete && \
+    find -type d -empty -delete
+
+# Invoke a dry run lockfile update against the manifest skeleton, thereby
+# caching a complete local crate index.
+FROM chef AS indexer
+COPY --from=planner /app .
+RUN cargo update --dry-run
+
+FROM chef AS builder
+ARG BIN PACKAGE
+COPY --from=planner /recipe.json recipe.json
+# Copy cached crate index.
+COPY --from=indexer $CARGO_HOME $CARGO_HOME
+# Build in locked mode to prevent local crate index cache invalidation, thereby
+# downloading only the necessary dependencies for the binary.
+RUN cargo chef cook --bin "$BIN" --locked --package "$PACKAGE" --release
+COPY . .
+# Build offline solely from cached crate index and downloaded dependencies.
+RUN cargo build --bin "$BIN" --frozen --package "$PACKAGE" --release
+# Rename executable for ease of copying.
+RUN mv "/app/target/release/$BIN" /app/executable;
+
+FROM debian:bookworm-slim AS runtime
+COPY --from=builder /app/executable /usr/local/bin
+ENTRYPOINT ["/usr/local/bin/executable"]
+```
+
+This pattern is especially useful for CI applications, because you can re-use
+the same Dockerfile with different `BIN` and `PACKAGE`
+[build arguments](https://docs.docker.com/build/guide/build-args/) to
+containerize any executable in your workspace:
+
+```sh
+docker build --build-arg="BIN=my-bin" --build-arg="PACKAGE=my_package" .
+```
+
+Note that the manifest skeleton generated in the `planner` layer will remove
+any `main.rs` files and thus inhibit
+[target auto-discovery](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#target-auto-discovery),
+so you'll need to
+[manually specify your binaries](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#binaries):
+
+```toml
+[[bin]]
+name = "my-bin"
+path = "src/main.rs"
+
+[package]
+edition = "2021"
+name = "my_package"
+version = "1.0.0"
+```
+
+See also:
+- [`cargo` #3377](https://github.com/rust-lang/cargo/issues/3377)
+- [`cargo` #8273](https://github.com/rust-lang/cargo/issues/8273)
+- [`cargo update --dry-run` rationale](https://github.com/serayuzgur/crates/issues/81#issuecomment-634037996)
+- [`docker/for-linux` #895](https://github.com/docker/for-linux/issues/895)
+- [`moby` #34482](https://github.com/moby/moby/issues/34482)
+
 ## Benefits vs Limitations
 
 `cargo-chef` has been tested on a few OpenSource projects and some of commercial projects, but our testing has definitely not exhausted the range of possibilities when it comes to `cargo build` customisations and we are sure that there are a few rough edges that will have to be smoothed out - please file issues on [GitHub](https://github.com/LukeMathWalker/cargo-chef).
