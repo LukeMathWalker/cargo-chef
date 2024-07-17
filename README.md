@@ -201,11 +201,13 @@ CMD ["/usr/local/bin/app"]
 
 ### Crate index caching
 
-Since the final `cargo build` command requires a complete local crate index, you
+Since the compilation operations require a complete local crate index, you
 might want to cache a local crate index when building against a large
 [Cargo workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html),
 especially if a non-target package in your workspace has a large `git`
-dependency that must be cloned during local crate index generation.
+dependency that must be cloned during local crate index generation. This is
+detailed extensively in
+[#274](https://github.com/LukeMathWalker/cargo-chef/pull/274).
 
 A sample Dockerfile looks like this:
 
