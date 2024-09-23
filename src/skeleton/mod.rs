@@ -220,9 +220,17 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             Some(target_dir) => target_dir,
         };
 
-        let profile = match profile {
-            OptimisationProfile::Release => "release".to_string(),
-            OptimisationProfile::Debug => "debug".to_string(),
+        // https://doc.rust-lang.org/cargo/guide/build-cache.html
+        // > For historical reasons, the `dev` and `test` profiles are stored
+        // > in the `debug` directory, and the `release` and `bench` profiles are
+        // > stored in the `release` directory. User-defined profiles are
+        // > stored in a directory with the same name as the profile.
+
+        let profile_dir = match &profile {
+            OptimisationProfile::Release => "release",
+            OptimisationProfile::Debug => "debug",
+            OptimisationProfile::Other(profile) if profile == "bench" => "release",
+            OptimisationProfile::Other(profile) if profile == "dev" || profile == "test" => "debug",
             OptimisationProfile::Other(custom_profile) => custom_profile,
         };
 
@@ -234,7 +242,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
                     .collect()
             })
             .iter()
-            .map(|path| path.join(&profile))
+            .map(|path| path.join(profile_dir))
             .collect();
 
         for manifest in &self.manifests {
