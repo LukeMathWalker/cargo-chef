@@ -251,7 +251,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             if let Some(package) = parsed_manifest.package.as_ref() {
                 for target_directory in &target_directories {
                     // Remove dummy libraries.
-                    for lib in &parsed_manifest.lib {
+                    if let Some(lib) = &parsed_manifest.lib {
                         let library_name =
                             lib.name.as_ref().unwrap_or(&package.name).replace('-', "_");
                         let walker = GlobWalkerBuilder::from_patterns(
