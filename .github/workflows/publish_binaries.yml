@@ -42,5 +42,6 @@ jobs:
           target: ${{ matrix.target }}
           tar: unix
           zip: windows
+          profile: max-perf-at-small-bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

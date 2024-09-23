@@ -5,5 +5,5 @@ ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
 # Install musl-dev on Alpine to avoid error "ld: cannot find crti.o: No such file or directory"
 RUN ((cat /etc/os-release | grep ID | grep alpine) && apk add --no-cache musl-dev || true) \
-    && cargo install cargo-chef --locked --version $CHEF_TAG \
+    && cargo install cargo-chef --locked --version $CHEF_TAG --profile="max-perf-at-small-bin" \
     && rm -rf $CARGO_HOME/registry/

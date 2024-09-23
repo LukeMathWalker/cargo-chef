@@ -158,14 +158,11 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
 
-            let is_harness = |products: &Option<Vec<Product>>, name: &str| -> bool {
+            let is_harness = |products: &Vec<Product>, name: &str| -> bool {
                 products
-                    .as_ref()
-                    .and_then(|v| {
-                        v.iter()
-                            .find(|product| product.name.as_deref() == Some(name))
-                            .map(|p| p.harness)
-                    })
+                    .iter()
+                    .find(|product| product.name.as_deref() == Some(name))
+                    .map(|p| p.harness)
                     .unwrap_or(true)
             };
 
