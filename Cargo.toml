@@ -28,7 +28,7 @@ env_logger = "0.10"
 globwalk = "0.8.0"
 anyhow = "1.0.33"
 pathdiff = "0.2.0"
-cargo-manifest = "0.14"
+cargo-manifest = "0.18"
 fs-err = "2.5.0"
 toml = { version = "0.8", features = ["preserve_order"] }
 expect-test = "1.1.0"
