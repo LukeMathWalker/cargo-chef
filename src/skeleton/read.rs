@@ -67,6 +67,10 @@ pub(super) fn manifests<P: AsRef<Path>>(
         let contents = fs::read_to_string(&absolute_path)?;
 
         let mut parsed = cargo_manifest::Manifest::from_str(&contents)?;
+        // The completions are relevant for our analysis, but we shouldn't
+        // include them in the final output.
+        let before_completions = toml::Value::try_from(&parsed)?;
+
         // Required to detect bin/libs when the related section is omitted from the manifest
         parsed.complete_from_path(&absolute_path)?;
 
@@ -103,7 +107,7 @@ pub(super) fn manifests<P: AsRef<Path>>(
 
         manifests.push(ParsedManifest {
             relative_path,
-            contents: intermediate,
+            contents: before_completions,
             targets: targets.into_iter().collect(),
         });
     }

@@ -673,9 +673,7 @@ version = "1.8.1"
             name = "test-dummy"
             plugin = false
             proc-macro = false
-            edition = "2018"
             required-features = []
-            crate-type = ["bin"]
 
             [package]
             name = "project-a"
@@ -703,11 +701,8 @@ version = "1.8.1"
             path = "../project-a"
 
             [lib]
-            path = "src/lib.rs"
-            name = "project_b"
             plugin = false
             proc-macro = false
-            edition = "2018"
             required-features = []
             crate-type = ["cdylib"]
         "#]],
@@ -858,9 +853,7 @@ version = "1.8.1"
             name = "test-dummy"
             plugin = false
             proc-macro = false
-            edition = "2018"
             required-features = []
-            crate-type = ["bin"]
 
             [package]
             name = "project_a"
@@ -883,11 +876,8 @@ version = "1.8.1"
             [dependencies]
 
             [lib]
-            path = "src/lib.rs"
-            name = "project_b"
             plugin = false
             proc-macro = false
-            edition = "2018"
             required-features = []
             crate-type = ["cdylib"]
         "#]],
@@ -1011,15 +1001,6 @@ checksum = "3df10e9ed85b51fa3434bc5676eaa90479ce14ac3e101c8ce07e1bb5ef0b7255"
     check(
         &second.contents,
         expect_test::expect![[r#"
-            [[bin]]
-            path = "src/main.rs"
-            name = "binary"
-            plugin = false
-            proc-macro = false
-            edition = "2021"
-            required-features = []
-            crate-type = ["bin"]
-
             [package]
             name = "binary"
             edition = "2021"
@@ -1044,15 +1025,6 @@ checksum = "3df10e9ed85b51fa3434bc5676eaa90479ce14ac3e101c8ce07e1bb5ef0b7255"
             version = "0.0.1"
 
             [dependencies]
-
-            [lib]
-            path = "src/lib.rs"
-            name = "without"
-            plugin = false
-            proc-macro = false
-            edition = "2021"
-            required-features = []
-            crate-type = ["lib"]
         "#]],
     );
 }
@@ -1286,14 +1258,6 @@ anyhow = { workspace = true }
     check(
         &second.contents,
         expect_test::expect![[r#"
-            [[bin]]
-            path = "src/main.rs"
-            name = "project_a"
-            plugin = false
-            proc-macro = false
-            required-features = []
-            crate-type = ["bin"]
-
             [package]
             name = "project_a"
 
@@ -1334,8 +1298,6 @@ anyhow = { workspace = true }
             workspace = true
 
             [lib]
-            path = "src/lib.rs"
-            name = "project_b"
             plugin = false
             proc-macro = false
             required-features = []
@@ -1436,14 +1398,6 @@ version = "0.2.1"
             version = "0.0.1"
             path = "../b"
             package = "b"
-
-            [lib]
-            path = "src/lib.rs"
-            name = "a"
-            plugin = false
-            proc-macro = false
-            required-features = []
-            crate-type = ["lib"]
         "#]],
     );
 }
