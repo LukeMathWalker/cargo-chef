@@ -675,7 +675,6 @@ version = "1.8.1"
             proc-macro = false
             edition = "2018"
             required-features = []
-            crate-type = ["bin"]
 
             [package]
             name = "project-a"
@@ -860,7 +859,6 @@ version = "1.8.1"
             proc-macro = false
             edition = "2018"
             required-features = []
-            crate-type = ["bin"]
 
             [package]
             name = "project_a"
@@ -1018,7 +1016,6 @@ checksum = "3df10e9ed85b51fa3434bc5676eaa90479ce14ac3e101c8ce07e1bb5ef0b7255"
             proc-macro = false
             edition = "2021"
             required-features = []
-            crate-type = ["bin"]
 
             [package]
             name = "binary"
@@ -1292,7 +1289,6 @@ anyhow = { workspace = true }
             plugin = false
             proc-macro = false
             required-features = []
-            crate-type = ["bin"]
 
             [package]
             name = "project_a"
