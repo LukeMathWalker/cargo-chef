@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context};
 use chef::{
-    AllFeatures, CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs,
+    AllFeatures, CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, Recipe,
+    TargetArgs,
 };
 use clap::crate_version;
 use clap::Parser;
@@ -154,6 +155,9 @@ pub struct Cook {
     /// projects that rely on a custom build system (i.e. not `cargo`).
     #[clap(long)]
     no_build: bool,
+    /// Specify the number of worker that you want to use
+    #[clap(long)]
+    jobs: Option<u16>,
 }
 
 fn _main() -> Result<(), anyhow::Error> {
@@ -195,6 +199,7 @@ fn _main() -> Result<(), anyhow::Error> {
             zigbuild,
             bins,
             no_build,
+            jobs,
         }) => {
             if std::io::stdout().is_terminal() {
                 eprintln!("WARNING stdout appears to be a terminal.");
@@ -295,6 +300,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     verbose,
                     bins,
                     no_build,
+                    jobs,
                 })
                 .context("Failed to cook recipe.")?;
         }
