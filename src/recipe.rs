@@ -47,7 +47,7 @@ pub struct CookArgs {
     pub bin: Option<Vec<String>>,
     pub bins: bool,
     pub no_build: bool,
-    pub jobs: Option<u16>
+    pub jobs: Option<u16>,
 }
 
 impl Recipe {
@@ -118,7 +118,7 @@ fn build_dependencies(args: &CookArgs) {
         no_std: _no_std,
         bins,
         no_build: _no_build,
-        jobs
+        jobs,
     } = args;
     let cargo_path = std::env::var("CARGO").expect("The `CARGO` environment variable was not set. This is unexpected: it should always be provided by `cargo` when invoking a custom sub-command, allowing `cargo-chef` to correctly detect which toolchain should be used. Please file a bug.");
     let mut command = Command::new(cargo_path);
@@ -204,10 +204,10 @@ fn build_dependencies(args: &CookArgs) {
         command_with_args.arg("--bins");
     }
 
-    if let Some(count) = jobs{
+    if let Some(count) = jobs {
         command_with_args.arg("--jobs").arg(count.to_string());
     }
-    
+
     execute_command(command_with_args);
 }
 

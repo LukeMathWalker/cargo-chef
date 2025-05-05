@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context};
 use chef::{
-    AllFeatures, CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, Recipe,
-    TargetArgs,
+    AllFeatures, CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs,
 };
 use clap::crate_version;
 use clap::Parser;
