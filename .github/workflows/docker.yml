@@ -77,8 +77,9 @@ jobs:
         name: Determine if duplicated
         id: is_duplicated
         run: |
-          CHEF_IMAGE=$DOCKER_REPO:$CHEF_IMAGE_TAG
+          CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
           CHEF_IMAGE_TAG=$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
+          CHEF_IMAGE=$DOCKER_REPO:$CHEF_IMAGE_TAG
 
           if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $CHEF_IMAGE >/dev/null; then
             echo "There is already a pushed image with ${CHEF_IMAGE_TAG} as tag. Skipping."
