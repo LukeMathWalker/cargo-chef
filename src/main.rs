@@ -115,6 +115,9 @@ pub struct Cook {
     /// Path to Cargo.toml
     #[arg(long)]
     manifest_path: Option<PathBuf>,
+    /// Manifest(s) that should not be overwritten or have their artifacts cleaned up.
+    #[arg(long)]
+    ignore_manifest: Option<Vec<PathBuf>>,
     /// Package(s) to build (see `cargo help pkgid`)
     #[arg(long, short = 'p')]
     package: Option<Vec<String>>,
@@ -183,6 +186,7 @@ fn _main() -> Result<(), anyhow::Error> {
             examples,
             all_targets,
             manifest_path,
+            ignore_manifest,
             package,
             workspace,
             offline,
@@ -284,6 +288,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     target_dir,
                     target_args,
                     manifest_path,
+                    ignore_manifest,
                     package,
                     workspace,
                     offline,
