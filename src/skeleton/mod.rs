@@ -86,6 +86,7 @@ impl Skeleton {
         &self,
         base_path: &Path,
         no_std: bool,
+        ignored_manifests: &[PathBuf],
     ) -> Result<(), anyhow::Error> {
         // Save lockfile to disk, if available
         if let Some(lock_file) = &self.lock_file {
@@ -146,8 +147,12 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 
         // Save all manifests to disks
         for manifest in &self.manifests {
-            // Persist manifest
             let manifest_path = base_path.join(&manifest.relative_path);
+            if ignored_manifests.contains(&manifest_path) {
+                continue;
+            }
+
+            // Persist manifest
             let parent_directory = if let Some(parent_directory) = manifest_path.parent() {
                 fs::create_dir_all(parent_directory)?;
                 parent_directory.to_path_buf()
@@ -211,6 +216,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
         profile: OptimisationProfile,
         target: Option<Vec<String>>,
         target_dir: Option<PathBuf>,
+        ignored_paths: &[PathBuf],
     ) -> Result<(), anyhow::Error> {
         let target_dir = match target_dir {
             None => base_path.as_ref().join("target"),
@@ -243,6 +249,11 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             .collect();
 
         for manifest in &self.manifests {
+            let manifest_path = base_path.as_ref().join(&manifest.relative_path);
+            if ignored_paths.contains(&manifest_path) {
+                continue;
+            }
+
             let parsed_manifest =
                 cargo_manifest::Manifest::from_slice(manifest.contents.as_bytes())?;
             if let Some(package) = parsed_manifest.package.as_ref() {
