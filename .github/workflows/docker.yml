@@ -77,6 +77,7 @@ jobs:
         name: Determine if duplicated
         id: is_duplicated
         run: |
+          RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
           CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
           CHEF_IMAGE_TAG=$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
           CHEF_IMAGE=$DOCKER_REPO:$CHEF_IMAGE_TAG
