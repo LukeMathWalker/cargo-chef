@@ -36,6 +36,7 @@ pub struct CookArgs {
     pub target_dir: Option<PathBuf>,
     pub target_args: TargetArgs,
     pub manifest_path: Option<PathBuf>,
+    pub ignore_manifest: Option<Vec<PathBuf>>,
     pub package: Option<Vec<String>>,
     pub workspace: bool,
     pub offline: bool,
@@ -57,8 +58,16 @@ impl Recipe {
 
     pub fn cook(&self, args: CookArgs) -> Result<(), anyhow::Error> {
         let current_directory = std::env::current_dir()?;
+        let ignored_manifests = args
+            .ignore_manifest
+            .as_deref()
+            .unwrap_or(&[])
+            .iter()
+            .map(|p| current_directory.join(p))
+            .collect::<Vec<_>>();
+
         self.skeleton
-            .build_minimum_project(&current_directory, args.no_std)?;
+            .build_minimum_project(&current_directory, args.no_std, &ignored_manifests)?;
         if args.no_build {
             return Ok(());
         }
@@ -69,6 +78,7 @@ impl Recipe {
                 args.profile,
                 args.target,
                 args.target_dir,
+                &ignored_manifests,
             )
             .context("Failed to clean up dummy compilation artifacts.")?;
         Ok(())
@@ -106,6 +116,7 @@ fn build_dependencies(args: &CookArgs) {
         target_dir,
         target_args,
         manifest_path,
+        ignore_manifest: _ignore_manifest,
         package,
         workspace,
         offline,
