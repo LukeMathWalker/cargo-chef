@@ -1,4 +1,4 @@
-use crate::Skeleton;
+use crate::{RustToolchainFile, Skeleton};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -62,7 +62,7 @@ impl Recipe {
         if args.no_build {
             return Ok(());
         }
-        build_dependencies(&args);
+        build_dependencies(&args, &self.skeleton.rust_toolchain_file);
         self.skeleton
             .remove_compiled_dummies(
                 current_directory,
@@ -94,7 +94,7 @@ pub enum AllFeatures {
     Disabled,
 }
 
-fn build_dependencies(args: &CookArgs) {
+fn build_dependencies(args: &CookArgs, toolchain: &Option<(RustToolchainFile, String)>) {
     let CookArgs {
         profile,
         command: command_arg,
@@ -119,6 +119,12 @@ fn build_dependencies(args: &CookArgs) {
         no_build: _no_build,
     } = args;
     let cargo_path = std::env::var("CARGO").expect("The `CARGO` environment variable was not set. This is unexpected: it should always be provided by `cargo` when invoking a custom sub-command, allowing `cargo-chef` to correctly detect which toolchain should be used. Please file a bug.");
+    if toolchain.is_some() {
+        // If that variable is already set, the provided toolchain from the recipe would be
+        // ignored. Unsetting it make cargo later use the toolchain file for building the
+        // dependencies.
+        std::env::remove_var("RUSTUP_TOOLCHAIN");
+    }
     let mut command = Command::new(cargo_path);
     let command_with_args = match command_arg {
         CommandArg::Build => command.arg("build"),
