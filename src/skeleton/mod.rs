@@ -254,8 +254,8 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
                         let walker = GlobWalkerBuilder::from_patterns(
                             target_directory,
                             &[
-                                format!("/**/lib{}.*", library_name),
-                                format!("/**/lib{}-*", library_name),
+                                format!("/**/lib{library_name}.*"),
+                                format!("/**/lib{library_name}-*"),
                             ],
                         )
                         .build()?;
