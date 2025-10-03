@@ -970,7 +970,7 @@ checksum = "3df10e9ed85b51fa3434bc5676eaa90479ce14ac3e101c8ce07e1bb5ef0b7255"
 
     // Assert
     let lock_file = skeleton.lock_file.expect("there should be a lock_file");
-    println!("{}", lock_file);
+    println!("{lock_file}");
     assert!(lock_file.contains(
         r#"
 [[package]]
@@ -1694,7 +1694,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
             .unwrap()
             .contents
             .split('=')
-            .last()
+            .next_back()
             .unwrap()
             .replace(['[', ']', '"'], "")
             .trim()
