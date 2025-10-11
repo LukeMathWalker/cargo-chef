@@ -102,7 +102,7 @@ jobs:
             --tag $CHEF_IMAGE_LATEST \
             --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG \
             --build-arg=CHEF_TAG=$CHEF_PACKAGE_VERSION \
-            --platform linux/amd64,linux/arm64 \
+            --platform linux/amd64,linux/arm64, linux/riscv64 \
             --push \
             ./docker
       -
@@ -121,6 +121,6 @@ jobs:
             --tag $DOCKER_REPO:latest \
             --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG \
             --build-arg=CHEF_TAG=$CHEF_PACKAGE_VERSION \
-            --platform linux/amd64,linux/arm64 \
+            --platform linux/amd64,linux/arm64, linux/riscv64 \
             --push \
             ./docker
