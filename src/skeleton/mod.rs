@@ -1,8 +1,10 @@
 mod read;
 mod target;
 mod version_masking;
+mod workspace;
 
 use crate::skeleton::target::{Target, TargetKind};
+use crate::skeleton::workspace::reduce_workspace_by_member;
 use crate::OptimisationProfile;
 use anyhow::Context;
 use cargo_manifest::Product;
@@ -51,13 +53,15 @@ impl Skeleton {
 
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
-        let mut manifests = read::manifests(&base_path, &graph)?;
-        if let Some(member) = member {
-            ignore_all_members_except(&mut manifests, &graph, member);
-        }
+
+        let mut manifests = read::manifests(&base_path, &metadata)?;
 
         let mut lock_file = read::lockfile(&base_path)?;
         let rust_toolchain_file = read::rust_toolchain(&base_path)?;
+
+        if let Some(member) = &member {
+            reduce_workspace_by_member(&metadata, &mut manifests, &mut lock_file, member)?;
+        }
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
 
