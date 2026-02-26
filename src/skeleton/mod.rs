@@ -324,8 +324,11 @@ fn extract_cargo_metadata(path: &Path) -> Result<cargo_metadata::Metadata, anyho
 ///
 /// Also deletes the `default-members` field because it does not play nicely
 /// with a modified `members` field and has no effect on cooking the final recipe.
+///
+/// Additionally, filters the manifests list to only include the specified member
+/// and its dependencies (transitively).
 fn ignore_all_members_except(
-    manifests: &mut [ParsedManifest],
+    manifests: &mut Vec<ParsedManifest>,
     metadata: &Metadata,
     member: String,
 ) {
@@ -359,4 +362,101 @@ fn ignore_all_members_except(
             workspace.remove("default-members");
         }
     }
+
+    // Filter manifests to only include the specified member and its dependencies
+    filter_manifests_to_member_and_deps(manifests, metadata, &member);
+}
+
+/// Filter manifests to only include the specified package and its dependencies (transitively).
+/// The workspace root Cargo.toml is always kept.
+fn filter_manifests_to_member_and_deps(
+    manifests: &mut Vec<ParsedManifest>,
+    metadata: &Metadata,
+    member_name: &str,
+) {
+    // Get the set of package IDs that should be kept (member + all its dependencies)
+    let keep_ids = get_member_and_dependency_ids(metadata, member_name);
+
+    if keep_ids.is_empty() {
+        // If we couldn't find the member or its dependencies, keep all manifests
+        return;
+    }
+
+    // Filter manifests to only include those in the keep set
+    // Always keep the root Cargo.toml (workspace manifest)
+    manifests.retain(|manifest| {
+        if manifest.relative_path == std::path::PathBuf::from("Cargo.toml") {
+            return true;
+        }
+
+        // Find the package ID for this manifest
+        // Convert relative path to absolute path for comparison
+        let manifest_path_str = manifest.relative_path.to_string_lossy();
+        let manifest_path_utf8 = metadata.workspace_root.join(manifest_path_str.as_ref());
+        let manifest_path: std::path::PathBuf = manifest_path_utf8.as_std_path().to_path_buf();
+
+        let package_id = metadata
+            .packages
+            .iter()
+            .find(|pkg| {
+                let pkg_manifest_path: std::path::PathBuf = pkg.manifest_path.clone().into();
+                pkg_manifest_path == manifest_path
+            })
+            .map(|pkg| &pkg.id);
+
+        match package_id {
+            Some(id) => keep_ids.contains(id),
+            None => false,
+        }
+    });
+}
+
+/// Get the set of package IDs that includes the specified member and all its dependencies.
+/// This function uses the package's declared dependencies (from Cargo.toml) rather than
+/// the resolve graph, since we use `no_deps()` when calling cargo metadata.
+fn get_member_and_dependency_ids(
+    metadata: &Metadata,
+    member_name: &str,
+) -> std::collections::HashSet<cargo_metadata::PackageId> {
+    let mut result = std::collections::HashSet::new();
+
+    // Find the package ID for the specified member
+    let member_pkg = metadata.packages.iter().find(|pkg| pkg.name == member_name);
+    let member_id = match member_pkg {
+        Some(pkg) => pkg.id.clone(),
+        None => return result,
+    };
+
+    // Build a map from package name to package ID for workspace packages
+    let workspace_package_ids: std::collections::HashMap<String, cargo_metadata::PackageId> =
+        metadata
+            .workspace_packages()
+            .into_iter()
+            .map(|pkg| (pkg.name.clone(), pkg.id.clone()))
+            .collect();
+
+    // Use BFS to find all workspace dependencies transitively
+    let mut to_visit = vec![member_id.clone()];
+    let mut visited = std::collections::HashSet::new();
+    visited.insert(member_id.clone());
+
+    while let Some(current_id) = to_visit.pop() {
+        result.insert(current_id.clone());
+
+        // Find the package for this ID
+        let current_pkg = metadata.packages.iter().find(|p| p.id == current_id);
+        if let Some(pkg) = current_pkg {
+            // Check all dependencies of this package
+            for dep in &pkg.dependencies {
+                // Only consider workspace dependencies (path dependencies)
+                if let Some(dep_id) = workspace_package_ids.get(&dep.name) {
+                    if visited.insert(dep_id.clone()) {
+                        to_visit.push(dep_id.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    result
 }
