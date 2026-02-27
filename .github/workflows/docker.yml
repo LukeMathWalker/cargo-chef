@@ -4,43 +4,104 @@ on:
     branches: [main]
   schedule:
     - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  RUST_IMAGE_TAG: latest
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   DOCKER_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/cargo-chef
 
 jobs:
-  rust_image_tag_matrix:
-    name: Generate Rust Docker image tag matrix
+  resolve_inputs:
+    name: Resolve release version and Rust tag digests
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      package_version: ${{ steps.collect.outputs.package_version }}
+      is_release_version: ${{ steps.collect.outputs.is_release_version }}
+      unique_digest_matrix: ${{ steps.collect.outputs.unique_digest_matrix }}
+      tag_matrix: ${{ steps.collect.outputs.tag_matrix }}
     steps:
       -
-        id: set-matrix
+        name: Checkout
+        uses: actions/checkout@v4
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        id: collect
         run: |
-          (echo -n 'matrix=[' \
-          && curl --silent https://raw.githubusercontent.com/docker-library/official-images/master/library/rust \
-            | grep -E Tags: \
-            | cut -d ' ' -f 2- \
-            | sed 's/, /\n/g' \
-            | sed 's/\(.*\)/"\1",/g' \
-            | tr '\n' ' ' \
-            | sed '$ s/..$//' \
-          && echo ']') >> "$GITHUB_OUTPUT"
-  build_and_push:
-    name: Build and push
-    needs: [rust_image_tag_matrix]
+          set -euo pipefail
+
+          git fetch --tags
+          CHEF_PACKAGE_VERSION=$(git tag --sort="-v:refname" | head -n 1 | cut -d"v" -f2)
+          echo "package_version=$CHEF_PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+
+          if ! [[ "$CHEF_PACKAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version '$CHEF_PACKAGE_VERSION' is not a release semver. Skipping image publish."
+            echo "is_release_version=false" >> "$GITHUB_OUTPUT"
+            echo 'unique_digest_matrix=[]' >> "$GITHUB_OUTPUT"
+            echo 'tag_matrix=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Detected release version $CHEF_PACKAGE_VERSION"
+          echo "is_release_version=true" >> "$GITHUB_OUTPUT"
+
+          TAGS=$(
+            curl --silent https://raw.githubusercontent.com/docker-library/official-images/master/library/rust \
+              | grep -E Tags: \
+              | cut -d ' ' -f 2- \
+              | sed 's/, /\n/g' \
+              | grep -E '^(latest|[0-9]+(\.[0-9]+){0,2}(-slim|-alpine)?)$' \
+              | sort -u
+          )
+          if [ -z "$TAGS" ]; then
+            echo "Failed to generate Rust image tag matrix" >&2
+            exit 1
+          fi
+
+          TAG_ENTRIES='[]'
+          while IFS= read -r TAG; do
+            [ -z "$TAG" ] && continue
+            BASE_DIGEST=$(docker buildx imagetools inspect "rust:$TAG" --format '{{.Digest}}')
+            BASE_DIGEST_TAG=${BASE_DIGEST#sha256:}
+            TAG_ENTRIES=$(
+              jq -c \
+                --arg rust_image_tag "$TAG" \
+                --arg base_digest "$BASE_DIGEST" \
+                --arg base_digest_tag "$BASE_DIGEST_TAG" \
+                '. + [{rust_image_tag: $rust_image_tag, base_digest: $base_digest, base_digest_tag: $base_digest_tag}]' \
+                <<< "$TAG_ENTRIES"
+            )
+          done <<< "$TAGS"
+
+          UNIQUE_DIGEST_MATRIX=$(
+            jq -c 'unique_by(.base_digest) | map({base_digest: .base_digest, base_digest_tag: .base_digest_tag})' <<< "$TAG_ENTRIES"
+          )
+          TAG_MATRIX=$(
+            jq -c 'map({rust_image_tag: .rust_image_tag, base_digest_tag: .base_digest_tag})' <<< "$TAG_ENTRIES"
+          )
+
+          echo "unique_digest_matrix=$UNIQUE_DIGEST_MATRIX" >> "$GITHUB_OUTPUT"
+          echo "tag_matrix=$TAG_MATRIX" >> "$GITHUB_OUTPUT"
+  build_unique_images:
+    name: Build unique digest images
+    needs: [resolve_inputs]
+    if: ${{ needs.resolve_inputs.outputs.is_release_version == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        rust_image_tag: ${{fromJSON(needs.rust_image_tag_matrix.outputs.matrix)}}
+        digest_entry: ${{fromJSON(needs.resolve_inputs.outputs.unique_digest_matrix)}}
     steps:
       -
         name: Checkout
@@ -58,69 +119,91 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        # Get package version from git tags
-        name: Get package version
-        id: package_version
-        run: |-
-          git fetch --tags
-          VER=$(git tag --sort="-v:refname" | head -n 1 | cut -d"v" -f2)
-          echo "result=$VER" >> "$GITHUB_OUTPUT"
-      -
-        # Check if version matches ^\d+\.\d+\.\d+$
-        name: Determine if release version
-        id: is_release_version
+        name: Determine if canonical image exists
+        id: canonical_status
         run: |
-          if [[ ${{ steps.package_version.outputs.result }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "result=true" >> "$GITHUB_OUTPUT"
-          fi
-      -
-        name: Determine if duplicated
-        id: is_duplicated
-        run: |
-          RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
-          CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
-          CHEF_IMAGE_TAG=$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
-          CHEF_IMAGE=$DOCKER_REPO:$CHEF_IMAGE_TAG
+          CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
+          BASE_DIGEST_TAG=${{ matrix.digest_entry.base_digest_tag }}
+          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$BASE_DIGEST_TAG
 
-          if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect $CHEF_IMAGE >/dev/null; then
-            echo "There is already a pushed image with ${CHEF_IMAGE_TAG} as tag. Skipping."
-            echo "result=true" >> "$GITHUB_OUTPUT"
+          if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$CANONICAL_IMAGE" >/dev/null 2>&1; then
+            echo "Canonical image already exists for digest $BASE_DIGEST_TAG. Skipping build."
+            echo "result=skip" >> "$GITHUB_OUTPUT"
           else
-            echo "result=false" >> "$GITHUB_OUTPUT"
+            echo "Canonical image does not exist for digest $BASE_DIGEST_TAG. Building."
+            echo "result=true" >> "$GITHUB_OUTPUT"
           fi
       -
-        name: Build and push without `latest` tag
-        if: ${{ steps.is_release_version.outputs.result == 'true' && steps.is_duplicated.outputs.result == 'false' && matrix.rust_image_tag != 'latest' }}
+        name: Build and push canonical image
+        if: ${{ steps.canonical_status.outputs.result == 'true' }}
         run: |
-          RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
-          CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
-          CHEF_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
-          CHEF_IMAGE_LATEST=$DOCKER_REPO:latest-rust-$RUST_IMAGE_TAG
+          CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
+          BASE_DIGEST=${{ matrix.digest_entry.base_digest }}
+          BASE_DIGEST_TAG=${{ matrix.digest_entry.base_digest_tag }}
+          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$BASE_DIGEST_TAG
 
           docker buildx build \
-            --tag $CHEF_IMAGE \
-            --tag $CHEF_IMAGE_LATEST \
-            --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG \
+            --tag $CANONICAL_IMAGE \
+            --build-arg=BASE_IMAGE=rust@$BASE_DIGEST \
             --build-arg=CHEF_TAG=$CHEF_PACKAGE_VERSION \
             --platform linux/amd64,linux/arm64 \
             --push \
             ./docker
+  publish_aliases:
+    name: Publish tag aliases
+    needs: [resolve_inputs, build_unique_images]
+    if: ${{ needs.resolve_inputs.outputs.is_release_version == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag_entry: ${{fromJSON(needs.resolve_inputs.outputs.tag_matrix)}}
+    steps:
       -
-        # Latest Rust version, latest cargo-chef version
-        name: Build and push with `latest` tag
-        if: ${{ steps.is_release_version.outputs.result == 'true' && steps.is_duplicated.outputs.result == 'false' && matrix.rust_image_tag == 'latest' }}
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        name: Publish aliases for Rust tag
         run: |
-          RUST_IMAGE_TAG=${{ matrix.rust_image_tag }}
-          CHEF_PACKAGE_VERSION=${{ steps.package_version.outputs.result }}
+          set -euo pipefail
+
+          RUST_IMAGE_TAG=${{ matrix.tag_entry.rust_image_tag }}
+          BASE_DIGEST_TAG=${{ matrix.tag_entry.base_digest_tag }}
+          CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
+          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$BASE_DIGEST_TAG
           CHEF_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
           CHEF_IMAGE_LATEST=$DOCKER_REPO:latest-rust-$RUST_IMAGE_TAG
+          missing_required_tag=false
+          if ! DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$CHEF_IMAGE" >/dev/null 2>&1; then
+            missing_required_tag=true
+          fi
+          if ! DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$CHEF_IMAGE_LATEST" >/dev/null 2>&1; then
+            missing_required_tag=true
+          fi
+          if [ "$RUST_IMAGE_TAG" = "latest" ] && ! DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$DOCKER_REPO:latest" >/dev/null 2>&1; then
+            missing_required_tag=true
+          fi
 
-          docker buildx build \
-            --tag $CHEF_IMAGE \
-            --tag $CHEF_IMAGE_LATEST \
-            --tag $DOCKER_REPO:latest \
-            --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG \
-            --build-arg=CHEF_TAG=$CHEF_PACKAGE_VERSION \
-            --platform linux/amd64,linux/arm64 \
-            --push \
-            ./docker
+          if [ "$missing_required_tag" = "false" ]; then
+            echo "All aliases already exist for rust:$RUST_IMAGE_TAG. Skipping."
+            exit 0
+          fi
+
+          if [ "$RUST_IMAGE_TAG" = "latest" ]; then
+            docker buildx imagetools create \
+              --tag $CHEF_IMAGE \
+              --tag $CHEF_IMAGE_LATEST \
+              --tag $DOCKER_REPO:latest \
+              $CANONICAL_IMAGE
+          else
+            docker buildx imagetools create \
+              --tag $CHEF_IMAGE \
+              --tag $CHEF_IMAGE_LATEST \
+              $CANONICAL_IMAGE
+          fi
