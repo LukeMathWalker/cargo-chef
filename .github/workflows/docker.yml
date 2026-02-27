@@ -16,13 +16,12 @@ env:
 
 jobs:
   resolve_inputs:
-    name: Resolve release version and Rust tag digests
+    name: Resolve release version and Rust tag groups
     runs-on: ubuntu-latest
     outputs:
       package_version: ${{ steps.collect.outputs.package_version }}
       is_release_version: ${{ steps.collect.outputs.is_release_version }}
-      unique_digest_matrix: ${{ steps.collect.outputs.unique_digest_matrix }}
-      tag_matrix: ${{ steps.collect.outputs.tag_matrix }}
+      group_matrix: ${{ steps.collect.outputs.group_matrix }}
     steps:
       -
         name: Checkout
@@ -48,60 +47,82 @@ jobs:
           if ! [[ "$CHEF_PACKAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Version '$CHEF_PACKAGE_VERSION' is not a release semver. Skipping image publish."
             echo "is_release_version=false" >> "$GITHUB_OUTPUT"
-            echo 'unique_digest_matrix=[]' >> "$GITHUB_OUTPUT"
-            echo 'tag_matrix=[]' >> "$GITHUB_OUTPUT"
+            echo 'group_matrix=[]' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "Detected release version $CHEF_PACKAGE_VERSION"
           echo "is_release_version=true" >> "$GITHUB_OUTPUT"
 
-          TAGS=$(
+          # Build one matrix row per official-images source group (GitCommit + Directory).
+          # All aliases in the same group are attached to the same canonical image.
+          GROUP_MATRIX=$(
             curl --silent https://raw.githubusercontent.com/docker-library/official-images/master/library/rust \
-              | grep -E Tags: \
-              | cut -d ' ' -f 2- \
-              | sed 's/, /\n/g' \
-              | grep -E '^(latest|[0-9]+(\.[0-9]+){0,2}(-slim|-alpine)?)$' \
-              | sort -u
+              | awk '
+                /^Tags:/ {
+                  tags = substr($0, 7)
+                  gsub(/, /, "\n", tags)
+                  next
+                }
+                /^GitCommit:/ {
+                  git = substr($0, 12)
+                  next
+                }
+                /^Directory:/ {
+                  dir = substr($0, 11)
+                  n = split(tags, arr, "\n")
+                  for (i = 1; i <= n; i++) {
+                    tag = arr[i]
+                    if (tag ~ /^(latest|[0-9]+(\.[0-9]+){0,2}(-slim|-alpine)?)$/) {
+                      print git ":" dir "\t" tag
+                    }
+                  }
+                  tags = ""
+                  git = ""
+                  dir = ""
+                }
+              ' \
+              | sort -u \
+              | jq -R -s -c '
+                  split("\n")
+                  | map(select(length > 0))
+                  | map(split("\t"))
+                  | map({group_key: .[0], rust_image_tag: .[1]})
+                  | group_by(.group_key)
+                  | map({
+                      group_key: .[0].group_key,
+                      rust_aliases: (map(.rust_image_tag) | sort),
+                      representative_rust_tag: (
+                        map(.rust_image_tag)
+                        | sort_by(
+                            if test("^latest$") then [4, .]
+                            elif test("^[0-9]+(-slim|-alpine)?$") then [3, .]
+                            elif test("^[0-9]+\\.[0-9]+(-slim|-alpine)?$") then [2, .]
+                            elif test("^[0-9]+\\.[0-9]+\\.[0-9]+(-slim|-alpine)?$") then [1, .]
+                            else [5, .]
+                            end
+                          )
+                        | .[0]
+                      )
+                    })
+                '
           )
-          if [ -z "$TAGS" ]; then
-            echo "Failed to generate Rust image tag matrix" >&2
+
+          if [ "$GROUP_MATRIX" = "[]" ] || [ -z "$GROUP_MATRIX" ]; then
+            echo "Failed to generate Rust image group matrix" >&2
             exit 1
           fi
 
-          TAG_ENTRIES='[]'
-          while IFS= read -r TAG; do
-            [ -z "$TAG" ] && continue
-            BASE_DIGEST=$(docker buildx imagetools inspect "rust:$TAG" --format '{{.Digest}}')
-            BASE_DIGEST_TAG=${BASE_DIGEST#sha256:}
-            TAG_ENTRIES=$(
-              jq -c \
-                --arg rust_image_tag "$TAG" \
-                --arg base_digest "$BASE_DIGEST" \
-                --arg base_digest_tag "$BASE_DIGEST_TAG" \
-                '. + [{rust_image_tag: $rust_image_tag, base_digest: $base_digest, base_digest_tag: $base_digest_tag}]' \
-                <<< "$TAG_ENTRIES"
-            )
-          done <<< "$TAGS"
-
-          UNIQUE_DIGEST_MATRIX=$(
-            jq -c 'unique_by(.base_digest) | map({base_digest: .base_digest, base_digest_tag: .base_digest_tag})' <<< "$TAG_ENTRIES"
-          )
-          TAG_MATRIX=$(
-            jq -c 'map({rust_image_tag: .rust_image_tag, base_digest_tag: .base_digest_tag})' <<< "$TAG_ENTRIES"
-          )
-
-          echo "unique_digest_matrix=$UNIQUE_DIGEST_MATRIX" >> "$GITHUB_OUTPUT"
-          echo "tag_matrix=$TAG_MATRIX" >> "$GITHUB_OUTPUT"
+          echo "group_matrix=$GROUP_MATRIX" >> "$GITHUB_OUTPUT"
   build_unique_images:
-    name: Build unique digest images
+    name: Build unique group images
     needs: [resolve_inputs]
     if: ${{ needs.resolve_inputs.outputs.is_release_version == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        digest_entry: ${{fromJSON(needs.resolve_inputs.outputs.unique_digest_matrix)}}
+        group_entry: ${{fromJSON(needs.resolve_inputs.outputs.group_matrix)}}
     steps:
       -
         name: Checkout
@@ -123,14 +144,15 @@ jobs:
         id: canonical_status
         run: |
           CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
-          BASE_DIGEST_TAG=${{ matrix.digest_entry.base_digest_tag }}
-          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$BASE_DIGEST_TAG
+          GROUP_KEY='${{ matrix.group_entry.group_key }}'
+          GROUP_KEY_TAG=$(printf '%s' "$GROUP_KEY" | shasum -a 256 | cut -c1-16)
+          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$GROUP_KEY_TAG
 
           if DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$CANONICAL_IMAGE" >/dev/null 2>&1; then
-            echo "Canonical image already exists for digest $BASE_DIGEST_TAG. Skipping build."
+            echo "Canonical image already exists for group $GROUP_KEY_TAG. Skipping build."
             echo "result=skip" >> "$GITHUB_OUTPUT"
           else
-            echo "Canonical image does not exist for digest $BASE_DIGEST_TAG. Building."
+            echo "Canonical image does not exist for group $GROUP_KEY_TAG. Building."
             echo "result=true" >> "$GITHUB_OUTPUT"
           fi
       -
@@ -138,26 +160,27 @@ jobs:
         if: ${{ steps.canonical_status.outputs.result == 'true' }}
         run: |
           CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
-          BASE_DIGEST=${{ matrix.digest_entry.base_digest }}
-          BASE_DIGEST_TAG=${{ matrix.digest_entry.base_digest_tag }}
-          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$BASE_DIGEST_TAG
+          RUST_IMAGE_TAG=${{ matrix.group_entry.representative_rust_tag }}
+          GROUP_KEY='${{ matrix.group_entry.group_key }}'
+          GROUP_KEY_TAG=$(printf '%s' "$GROUP_KEY" | shasum -a 256 | cut -c1-16)
+          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$GROUP_KEY_TAG
 
           docker buildx build \
             --tag $CANONICAL_IMAGE \
-            --build-arg=BASE_IMAGE=rust@$BASE_DIGEST \
+            --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG \
             --build-arg=CHEF_TAG=$CHEF_PACKAGE_VERSION \
             --platform linux/amd64,linux/arm64 \
             --push \
             ./docker
-  publish_aliases:
-    name: Publish tag aliases
+  publish_group_aliases:
+    name: Publish group aliases
     needs: [resolve_inputs, build_unique_images]
     if: ${{ needs.resolve_inputs.outputs.is_release_version == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        tag_entry: ${{fromJSON(needs.resolve_inputs.outputs.tag_matrix)}}
+        group_entry: ${{fromJSON(needs.resolve_inputs.outputs.group_matrix)}}
     steps:
       -
         name: Set up Docker Buildx
@@ -169,41 +192,36 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        name: Publish aliases for Rust tag
+        name: Publish aliases for Rust group
         run: |
           set -euo pipefail
 
-          RUST_IMAGE_TAG=${{ matrix.tag_entry.rust_image_tag }}
-          BASE_DIGEST_TAG=${{ matrix.tag_entry.base_digest_tag }}
           CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
-          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$BASE_DIGEST_TAG
-          CHEF_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
-          CHEF_IMAGE_LATEST=$DOCKER_REPO:latest-rust-$RUST_IMAGE_TAG
-          missing_required_tag=false
-          if ! DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$CHEF_IMAGE" >/dev/null 2>&1; then
-            missing_required_tag=true
-          fi
-          if ! DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$CHEF_IMAGE_LATEST" >/dev/null 2>&1; then
-            missing_required_tag=true
-          fi
-          if [ "$RUST_IMAGE_TAG" = "latest" ] && ! DOCKER_CLI_EXPERIMENTAL=enabled docker manifest inspect "$DOCKER_REPO:latest" >/dev/null 2>&1; then
-            missing_required_tag=true
-          fi
+          GROUP_KEY='${{ matrix.group_entry.group_key }}'
+          GROUP_KEY_TAG=$(printf '%s' "$GROUP_KEY" | shasum -a 256 | cut -c1-16)
+          CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$GROUP_KEY_TAG
+          RUST_ALIASES_JSON='${{ toJSON(matrix.group_entry.rust_aliases) }}'
 
-          if [ "$missing_required_tag" = "false" ]; then
-            echo "All aliases already exist for rust:$RUST_IMAGE_TAG. Skipping."
+          mapfile -t RUST_ALIASES < <(jq -r '.[]' <<< "$RUST_ALIASES_JSON")
+          if [ "${#RUST_ALIASES[@]}" -eq 0 ]; then
+            echo "No aliases found for group $GROUP_KEY_TAG. Skipping."
             exit 0
           fi
 
-          if [ "$RUST_IMAGE_TAG" = "latest" ]; then
-            docker buildx imagetools create \
-              --tag $CHEF_IMAGE \
-              --tag $CHEF_IMAGE_LATEST \
-              --tag $DOCKER_REPO:latest \
-              $CANONICAL_IMAGE
-          else
-            docker buildx imagetools create \
-              --tag $CHEF_IMAGE \
-              --tag $CHEF_IMAGE_LATEST \
-              $CANONICAL_IMAGE
+          tag_args=()
+          has_latest_alias=false
+          for RUST_IMAGE_TAG in "${RUST_ALIASES[@]}"; do
+            CHEF_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-rust-$RUST_IMAGE_TAG
+            CHEF_IMAGE_LATEST=$DOCKER_REPO:latest-rust-$RUST_IMAGE_TAG
+            tag_args+=(--tag "$CHEF_IMAGE")
+            tag_args+=(--tag "$CHEF_IMAGE_LATEST")
+
+            if [ "$RUST_IMAGE_TAG" = "latest" ]; then
+              has_latest_alias=true
+            fi
+          done
+          if [ "$has_latest_alias" = "true" ]; then
+            tag_args+=(--tag "$DOCKER_REPO:latest")
           fi
+
+          docker buildx imagetools create "${tag_args[@]}" "$CANONICAL_IMAGE"
