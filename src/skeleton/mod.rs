@@ -331,7 +331,7 @@ fn ignore_all_members_except(
 ) {
     let workspace_toml = manifests
         .iter_mut()
-        .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"));
+        .find(|manifest| manifest.relative_path == std::path::Path::new("Cargo.toml"));
 
     if let Some(workspace) = workspace_toml.and_then(|toml| toml.contents.get_mut("workspace")) {
         if let Some(members) = workspace.get_mut("members") {
