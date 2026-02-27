@@ -1,9 +1,10 @@
 name: Build Docker images
 on:
   push:
-    branches: [main]
+    tags:
+      - "**[0-9]+.[0-9]+.[0-9]+*"
   schedule:
-    - cron: '42 7 * * *' # run at 7:42 UTC (morning) every day
+    - cron: "42 7 * * *" # run at 7:42 UTC (morning) every day
   workflow_dispatch:
 
 permissions:
@@ -23,20 +24,16 @@ jobs:
       is_release_version: ${{ steps.collect.outputs.is_release_version }}
       group_matrix: ${{ steps.collect.outputs.group_matrix }}
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      -
-        name: Login to DockerHub
+      - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        id: collect
+      - id: collect
         run: |
           set -euo pipefail
 
@@ -124,23 +121,18 @@ jobs:
       matrix:
         group_entry: ${{fromJSON(needs.resolve_inputs.outputs.group_matrix)}}
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Set up QEMU
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      -
-        name: Login to DockerHub
+      - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Determine if canonical image exists
+      - name: Determine if canonical image exists
         id: canonical_status
         run: |
           CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
@@ -155,8 +147,7 @@ jobs:
             echo "Canonical image does not exist for group $GROUP_KEY_TAG. Building."
             echo "result=true" >> "$GITHUB_OUTPUT"
           fi
-      -
-        name: Build and push canonical image
+      - name: Build and push canonical image
         if: ${{ steps.canonical_status.outputs.result == 'true' }}
         run: |
           CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
@@ -182,17 +173,14 @@ jobs:
       matrix:
         group_entry: ${{fromJSON(needs.resolve_inputs.outputs.group_matrix)}}
     steps:
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      -
-        name: Login to DockerHub
+      - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Publish aliases for Rust group
+      - name: Publish aliases for Rust group
         run: |
           set -euo pipefail
 
