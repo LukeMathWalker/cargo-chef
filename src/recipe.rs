@@ -38,6 +38,7 @@ pub struct CookArgs {
     pub manifest_path: Option<PathBuf>,
     pub package: Option<Vec<String>>,
     pub workspace: bool,
+    pub exclude: Option<Vec<String>>,
     pub offline: bool,
     pub locked: bool,
     pub frozen: bool,
@@ -108,6 +109,7 @@ fn build_dependencies(args: &CookArgs) {
         manifest_path,
         package,
         workspace,
+        exclude,
         offline,
         frozen,
         locked,
@@ -182,6 +184,17 @@ fn build_dependencies(args: &CookArgs) {
     }
     if *workspace {
         command_with_args.arg("--workspace");
+    }
+    match (*workspace, exclude) {
+        (true, Some(exclude_list)) if !exclude_list.is_empty() => {
+            for exclude_item in exclude_list {
+                command_with_args.arg("--exclude").arg(exclude_item);
+            }
+        }
+        (false, Some(_)) => {
+            panic!("`--exclude` can only be used with `--workspace`");
+        }
+        _ => {}
     }
     if *offline {
         command_with_args.arg("--offline");
