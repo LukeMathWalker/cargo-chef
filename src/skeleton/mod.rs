@@ -4,7 +4,7 @@ mod version_masking;
 mod workspace;
 
 use crate::skeleton::target::{Target, TargetKind};
-use crate::skeleton::workspace::reduce_workspace_by_member;
+use crate::skeleton::workspace::filter_workspace_for_target;
 use crate::OptimisationProfile;
 use anyhow::Context;
 use cargo_manifest::Product;
@@ -47,7 +47,7 @@ impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
     pub fn derive<P: AsRef<Path>>(
         base_path: P,
-        member: Option<String>,
+        target: Option<String>,
     ) -> Result<Self, anyhow::Error> {
         let graph = extract_package_graph(base_path.as_ref())?;
 
@@ -59,8 +59,8 @@ impl Skeleton {
         let mut lock_file = read::lockfile(&base_path)?;
         let rust_toolchain_file = read::rust_toolchain(&base_path)?;
 
-        if let Some(member) = &member {
-            reduce_workspace_by_member(&metadata, &mut manifests, &mut lock_file, member)?;
+        if let Some(target) = &target {
+            filter_workspace_for_target(&metadata, &mut manifests, &mut lock_file, target)?;
         }
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);

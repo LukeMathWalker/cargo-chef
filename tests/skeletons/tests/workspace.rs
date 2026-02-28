@@ -391,7 +391,7 @@ version = "0.2.1"
 }
 
 #[test]
-pub fn reduce_workspace_to_single_member() {
+pub fn filter_workspace_for_target() {
     // Arrange
     let project = CargoWorkspace::new()
         .manifest(
@@ -446,7 +446,7 @@ edition = "2018"
 }
 
 #[test]
-pub fn reduce_workspace_to_member_with_dependency() {
+pub fn filter_workspace_for_target_with_dependency() {
     // Arrange
     let project = CargoWorkspace::new()
         .manifest(
