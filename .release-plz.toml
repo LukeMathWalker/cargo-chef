@@ -1,2 +1,3 @@
 [workspace]
 git_release_enable = false
+semver_check = false
