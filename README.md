@@ -123,12 +123,18 @@ As long as your dependencies do not change the `recipe.json` file will stay the 
 
 We offer `lukemathwalker/cargo-chef` as a pre-built Docker image equipped with both Rust and `cargo-chef`.
 
-The tagging scheme is `<cargo-chef version>-rust-<rust version>`.  
-For example, `0.1.22-rust-1.56.0`.  
-You can choose to get the latest version of either `cargo-chef` or `rust` by using:
-- `latest-rust-1.56.0` (use latest `cargo-chef` with specific Rust version);
-- `0.1.22-rust-latest` (use latest Rust with specific `cargo-chef` version).
-You can find [all the available tags on Dockerhub](https://hub.docker.com/r/lukemathwalker/cargo-chef).
+The tagging scheme is `<cargo-chef version>-rust-<rust tag>`. For example, `0.1.74-rust-1.56.0`.
+We publish tags for every `library/rust` alias, including:
+- `latest-rust-<alias>` (latest `cargo-chef` version, specific Rust version)
+- `<cargo-chef version>-rust-<alias>` (specific `cargo-chef` version, specific Rust version)
+- `latest` (latest `cargo-chef` version, latest Rust version, matching upstream Rust `latest`)
+
+Aliases come directly from [official Rust images](https://hub.docker.com/_/rust/#supported-tags-and-respective-dockerfile-links), e.g.:
+- `1`, `1.93`, `1.93.1`
+- `bookworm`, `slim-bookworkm`, `bullseye`, `trixie`, `alpine3.23`
+- `1.93.1-bookworm`, `1.93.1-slim`, `1.93.1-alpine3.23`
+
+Visit [`cargo-chef` page on DockerHub](https://hub.docker.com/r/lukemathwalker/cargo-chef/tags) for an exhaustive list of available tags.
 
 > :warning:  **You must use the same Rust version in all stages**  
 > If you use a different Rust version in one of the stages
@@ -142,7 +148,7 @@ If you do not want to use the `lukemathwalker/cargo-chef` image, you can simply 
 FROM rust:1 AS chef 
 # We only pay the installation cost once, 
 # it will be cached from the second build onwards
-RUN cargo install cargo-chef 
+RUN cargo install --locked cargo-chef 
 WORKDIR app
 
 FROM chef AS planner
@@ -178,7 +184,7 @@ A sample Dockerfile looks like this:
 # the official Rust toolchain
 FROM clux/muslrust:stable AS chef
 USER root
-RUN cargo install cargo-chef
+RUN cargo install --locked cargo-chef
 WORKDIR /app
 
 FROM chef AS planner
