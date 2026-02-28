@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.75](https://github.com/LukeMathWalker/cargo-chef/compare/v0.1.74...v0.1.75) - 2026-02-28
+
+### Added
+
+- Support the --jobs flags.
+
+### Other
+
+- Disable semver check. We version based on the CLI interface, not the library one
+- Bump rustsec/audit-check from 1.4.1 to 2.0.0 ([#278](https://github.com/LukeMathWalker/cargo-chef/pull/278))
+- Use a PAT to allow release-plz's job to trigger other workflows
+
 ## [0.1.74](https://github.com/LukeMathWalker/cargo-chef/compare/v0.1.73...v0.1.74) - 2026-02-27
 
 ### Other
