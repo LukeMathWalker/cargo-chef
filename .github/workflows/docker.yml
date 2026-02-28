@@ -61,6 +61,11 @@ jobs:
                   gsub(/, /, "\n", tags)
                   next
                 }
+                /^Architectures:/ {
+                  arches = substr($0, 16)
+                  gsub(/, /, ",", arches)
+                  next
+                }
                 /^GitCommit:/ {
                   git = substr($0, 12)
                   next
@@ -70,11 +75,10 @@ jobs:
                   n = split(tags, arr, "\n")
                   for (i = 1; i <= n; i++) {
                     tag = arr[i]
-                    if (tag ~ /^(latest|[0-9]+(\.[0-9]+){0,2}(-slim|-alpine)?)$/) {
-                      print git ":" dir "\t" tag
-                    }
+                    print git ":" dir "\t" tag "\t" arches
                   }
                   tags = ""
+                  arches = ""
                   git = ""
                   dir = ""
                 }
@@ -84,22 +88,38 @@ jobs:
                   split("\n")
                   | map(select(length > 0))
                   | map(split("\t"))
-                  | map({group_key: .[0], rust_image_tag: .[1]})
+                  | map({group_key: .[0], rust_image_tag: .[1], architectures: (.[2] // "" | split(",") | map(select(length > 0)))})
                   | group_by(.group_key)
                   | map({
                       group_key: .[0].group_key,
                       rust_aliases: (map(.rust_image_tag) | sort),
+                      architectures: (map(.architectures) | add | unique | sort),
                       representative_rust_tag: (
                         map(.rust_image_tag)
                         | sort_by(
-                            if test("^latest$") then [4, .]
-                            elif test("^[0-9]+(-slim|-alpine)?$") then [3, .]
-                            elif test("^[0-9]+\\.[0-9]+(-slim|-alpine)?$") then [2, .]
-                            elif test("^[0-9]+\\.[0-9]+\\.[0-9]+(-slim|-alpine)?$") then [1, .]
-                            else [5, .]
+                            if test("^latest$") then [5, .]
+                            elif test("^[0-9]+\\.[0-9]+\\.[0-9]+([-.].+)?$") then [1, .]
+                            elif test("^[0-9]+\\.[0-9]+([-.].+)?$") then [2, .]
+                            elif test("^[0-9]+([-.].+)?$") then [3, .]
+                            else [4, .]
                             end
                           )
                         | .[0]
+                      ),
+                      platforms: (
+                        map(.architectures)
+                        | add
+                        | unique
+                        | map(
+                            if . == "amd64" then "linux/amd64"
+                            elif . == "arm64v8" then "linux/arm64"
+                            elif . == "arm32v7" then "linux/arm/v7"
+                            elif . == "i386" then "linux/386"
+                            else empty
+                            end
+                          )
+                        | unique
+                        | sort
                       )
                     })
                 '
@@ -155,12 +175,18 @@ jobs:
           GROUP_KEY='${{ matrix.group_entry.group_key }}'
           GROUP_KEY_TAG=$(printf '%s' "$GROUP_KEY" | shasum -a 256 | cut -c1-16)
           CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$GROUP_KEY_TAG
+          PLATFORMS_JSON='${{ toJSON(matrix.group_entry.platforms) }}'
+          PLATFORMS=$(jq -r 'join(",")' <<< "$PLATFORMS_JSON")
+          if [ -z "$PLATFORMS" ] || [ "$PLATFORMS" = "null" ]; then
+            echo "No supported platforms found for group $GROUP_KEY_TAG. Skipping."
+            exit 0
+          fi
 
           docker buildx build \
             --tag $CANONICAL_IMAGE \
             --build-arg=BASE_IMAGE=rust:$RUST_IMAGE_TAG \
             --build-arg=CHEF_TAG=$CHEF_PACKAGE_VERSION \
-            --platform linux/amd64,linux/arm64 \
+            --platform "$PLATFORMS" \
             --push \
             ./docker
   publish_group_aliases:

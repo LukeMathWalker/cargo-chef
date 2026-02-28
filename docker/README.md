@@ -10,11 +10,7 @@ The workflow has three stages:
 1. Resolve inputs (`resolve_inputs`)
 - Reads latest git tag and validates it is a release semver (`X.Y.Z`).
 - Fetches Rust metadata from Docker Official Images (`library/rust`).
-- Keeps only supported Rust aliases:
-  - `latest`
-  - short aliases (`1`, `1.93`, ...)
-  - full versions (`1.93.1`, ...)
-  - optional distro suffixes (`-slim`, `-alpine`)
+- Keeps all Rust aliases published in `library/rust`.
 - Groups aliases by source group key (`GitCommit + ":" + Directory` from `library/rust`).
 - Produces one matrix entry per group, each containing:
   - a stable `group_key_tag`
@@ -24,7 +20,8 @@ The workflow has three stages:
 2. Build once per group (`build_unique_images`)
 - Builds exactly one canonical image per `(cargo-chef version, group key)`:
   - `<cargo-chef version>-base-<group_key_tag>`
-- Uses one representative Rust alias as build input.
+- Uses one representative Rust alias as build input (prefers versioned tags when present).
+- Uses upstream `Architectures` to set `buildx` platforms, limited to `amd64`, `arm64`, `arm/v7`, and `386`.
 - Skips if the canonical image already exists.
 
 3. Publish aliases per group (`publish_group_aliases`)
