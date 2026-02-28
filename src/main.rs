@@ -154,8 +154,8 @@ pub struct Cook {
     /// projects that rely on a custom build system (i.e. not `cargo`).
     #[clap(long)]
     no_build: bool,
-    /// Number of rust workers
-    #[clap(long)]
+    /// Number of parallel jobs, defaults to # of CPUs.
+    #[clap(long, short = 'j')]
     jobs: Option<u16>,
 }
 
