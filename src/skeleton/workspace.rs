@@ -13,6 +13,8 @@ pub(super) fn reduce_workspace_by_member(
     lock_file: &mut Option<Value>,
     member: &str,
 ) -> Result<()> {
+    let package_name = resolve_to_package_name(metadata, member);
+
     let workspace_members = manifests
         .iter()
         .filter_map(|m| extract_pkg_name(&m.contents))
@@ -39,18 +41,17 @@ pub(super) fn reduce_workspace_by_member(
     let members_to_members_graph = build_dependency_graph(&manifests, &workspace_members);
     let members_to_dependencies_graph = build_dependency_graph(&manifests, &workspace_dependencies);
 
-    let relevant_members = compute_transitive_deps(member, &members_to_members_graph);
-    let relevant_dependencies = compute_transitive_deps(member, &members_to_dependencies_graph);
+    let relevant_members =
+        compute_transitive_dependencies(&package_name, &members_to_members_graph);
+    let relevant_dependencies =
+        compute_transitive_dependencies(&package_name, &members_to_dependencies_graph);
 
-    // Remove all workspace members from the root manifest
-    ignore_all_members_except(manifests, &metadata, member);
+    update_workspace_members(manifests, metadata, &relevant_members);
 
-    // Retain only the manifests of the relevant workspace member
     manifests.retain(|manifest| {
         extract_pkg_name(&manifest.contents).is_none_or(|name| relevant_members.contains(&name))
     });
 
-    // Filter lockfile to keep only relevant dependencies
     if let Some(lockfile) = lock_file {
         filter_lockfile(lockfile, &workspace_members, &relevant_members)?;
         filter_lockfile(lockfile, &workspace_dependencies, &relevant_dependencies)?;
@@ -59,11 +60,6 @@ pub(super) fn reduce_workspace_by_member(
     Ok(())
 }
 
-/// Builds a dependency graph from a list of parsed Cargo manifests.
-///
-/// For each manifest, this function collects all dependencies
-/// under `[dependencies]` and `[dev-dependencies]` that are
-/// also present in the provided `target_deps` set.
 fn build_dependency_graph(
     manifests: &[ParsedManifest],
     target_deps: &HashSet<String>,
@@ -89,8 +85,8 @@ fn build_dependency_graph(
     graph
 }
 
-/// Compute all transitive dependencies of the given target member.
-fn compute_transitive_deps(
+/// Starting from `target`, walk the dependency graph and collect all reachable nodes.
+fn compute_transitive_dependencies(
     target: &str,
     deps: &HashMap<String, HashSet<String>>,
 ) -> HashSet<String> {
@@ -108,7 +104,7 @@ fn compute_transitive_deps(
     keep
 }
 
-/// Filter lockfile to keep only relevant dependencies
+/// Filter the lockfile to only keep packages needed for the target build.
 fn filter_lockfile(
     lock_file: &mut cargo_manifest::Value,
     all: &HashSet<String>,
@@ -132,7 +128,6 @@ fn filter_lockfile(
     Ok(())
 }
 
-/// Extract the crate name from contents
 fn extract_pkg_name(contents: &Value) -> Option<String> {
     contents
         .get("package")?
@@ -141,40 +136,126 @@ fn extract_pkg_name(contents: &Value) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-/// If the top-level `Cargo.toml` has a `members` field, replace it with
-/// a list consisting of just the path to the package.
-///
-/// Also deletes the `default-members` field because it does not play nicely
-/// with a modified `members` field and has no effect on cooking the final recipe.
-fn ignore_all_members_except(manifests: &mut [ParsedManifest], metadata: &Metadata, member: &str) {
-    let workspace_toml = manifests
-        .iter_mut()
-        .find(|manifest| manifest.relative_path == std::path::PathBuf::from("Cargo.toml"));
+/// If `member` is a binary name, find the package containing it. Otherwise return as-is.
+fn resolve_to_package_name(metadata: &Metadata, member: &str) -> String {
+    let workspace_packages = metadata.workspace_packages();
 
-    if let Some(workspace) = workspace_toml.and_then(|toml| toml.contents.get_mut("workspace")) {
-        if let Some(members) = workspace.get_mut("members") {
-            let workspace_root = &metadata.workspace_root;
-            let workspace_packages = metadata.workspace_packages();
+    if workspace_packages.iter().any(|pkg| pkg.name == member) {
+        return member.to_string();
+    }
 
-            if let Some(pkg) = workspace_packages
-                .into_iter()
-                .find(|pkg| pkg.name == member)
-            {
-                // Make this a relative path to the workspace, and remove the `Cargo.toml` child.
-                let member_cargo_path = diff_paths(pkg.manifest_path.as_os_str(), workspace_root);
-                let member_workspace_path = member_cargo_path
-                    .as_ref()
-                    .and_then(|path| path.parent())
-                    .and_then(|dir| dir.to_str());
-
-                if let Some(member_path) = member_workspace_path {
-                    *members =
-                        toml::Value::Array(vec![toml::Value::String(member_path.to_string())]);
-                }
+    for pkg in workspace_packages {
+        for target in &pkg.targets {
+            if target.is_bin() && target.name == member {
+                return pkg.name.clone();
             }
         }
-        if let Some(workspace) = workspace.as_table_mut() {
-            workspace.remove("default-members");
+    }
+
+    member.to_string()
+}
+
+/// Rewrite the root `Cargo.toml` so that `[workspace] members` only lists packages
+/// in `relevant_members`. Also removes `default-members` to avoid conflicts.
+fn update_workspace_members(
+    manifests: &mut [ParsedManifest],
+    metadata: &Metadata,
+    relevant_members: &HashSet<String>,
+) {
+    let workspace_toml = manifests
+        .iter_mut()
+        .find(|m| m.relative_path == std::path::PathBuf::from("Cargo.toml"));
+
+    let Some(workspace) = workspace_toml.and_then(|toml| toml.contents.get_mut("workspace")) else {
+        return;
+    };
+
+    if let Some(members) = workspace.get_mut("members") {
+        let workspace_root = &metadata.workspace_root;
+        let member_paths: Vec<toml::Value> = metadata
+            .workspace_packages()
+            .iter()
+            .filter(|pkg| relevant_members.contains(&pkg.name))
+            .filter_map(|pkg| {
+                diff_paths(&pkg.manifest_path, workspace_root)
+                    .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+                    .and_then(|d| d.to_str().map(|s| toml::Value::String(s.to_string())))
+            })
+            .collect();
+
+        if !member_paths.is_empty() {
+            *members = toml::Value::Array(member_paths);
         }
+    }
+
+    if let Some(workspace) = workspace.as_table_mut() {
+        workspace.remove("default-members");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_transitive_dependencies() {
+        let mut graph = HashMap::new();
+        graph.insert("app".to_string(), HashSet::from(["core".to_string()]));
+        graph.insert("core".to_string(), HashSet::from(["utils".to_string()]));
+        graph.insert("utils".to_string(), HashSet::new());
+
+        let result = compute_transitive_dependencies("app", &graph);
+        assert!(result.contains("app"));
+        assert!(result.contains("core"));
+        assert!(result.contains("utils"));
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_filter_lockfile() {
+        let mut lockfile: toml::Value = toml::from_str(
+            r#"
+[[package]]
+name = "app"
+version = "0.1.0"
+
+[[package]]
+name = "lib"
+version = "0.1.0"
+
+[[package]]
+name = "serde"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        let all_members = HashSet::from(["app".to_string(), "lib".to_string()]);
+        let relevant = HashSet::from(["app".to_string()]);
+
+        filter_lockfile(&mut lockfile, &all_members, &relevant).unwrap();
+
+        let packages = lockfile.get("package").unwrap().as_array().unwrap();
+        let names: Vec<_> = packages
+            .iter()
+            .filter_map(|p| p.get("name")?.as_str())
+            .collect();
+
+        // "lib" was filtered out, "app" and "serde" remain
+        assert_eq!(names, vec!["app", "serde"]);
+    }
+
+    #[test]
+    fn test_extract_pkg_name() {
+        let toml: Value = toml::from_str(
+            r#"
+[package]
+name = "my-crate"
+version = "0.1.0"
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(extract_pkg_name(&toml), Some("my-crate".to_string()));
     }
 }

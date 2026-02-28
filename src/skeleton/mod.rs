@@ -8,7 +8,6 @@ use crate::skeleton::workspace::reduce_workspace_by_member;
 use crate::OptimisationProfile;
 use anyhow::Context;
 use cargo_manifest::Product;
-use cargo_metadata::Metadata;
 use fs_err as fs;
 use globwalk::GlobWalkerBuilder;
 use guppy::graph::PackageGraph;
@@ -321,6 +320,7 @@ fn extract_package_graph(path: &Path) -> Result<PackageGraph, anyhow::Error> {
     cmd.current_dir(path);
     cmd.build_graph().context("Cannot extract package graph")
 }
+<<<<<<< HEAD
 
 /// If the top-level `Cargo.toml` has a `members` field, replace it with
 /// a list consisting of just the path to the package.
@@ -360,3 +360,5 @@ fn ignore_all_members_except(
         }
     }
 }
+=======
+>>>>>>> 2195fe9 (add unit tests)
