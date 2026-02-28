@@ -389,3 +389,119 @@ version = "0.2.1"
         "#]],
     );
 }
+
+#[test]
+pub fn reduce_workspace_to_single_member() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = [
+    "bin_a",
+    "bin_b",
+]
+    "#,
+        )
+        .bin_package(
+            "bin_a",
+            r#"
+[package]
+name = "bin_a"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+uuid = { version = "=0.8.0", features = ["v4"] }
+    "#,
+        )
+        .bin_package(
+            "bin_b",
+            r#"
+[package]
+name = "bin_b"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+    "#,
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), Some("bin_a".to_string())).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), false)
+        .unwrap();
+
+    // Assert
+    assert_eq!(2, skeleton.manifests.len());
+    cook_directory
+        .child("bin_a")
+        .child("src")
+        .child("main.rs")
+        .assert("fn main() {}");
+}
+
+#[test]
+pub fn reduce_workspace_to_member_with_dependency() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = [
+    "bin_a",
+    "lib_a",
+]
+    "#,
+        )
+        .bin_package(
+            "bin_a",
+            r#"
+[package]
+name = "bin_a"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+lib_a = { path = "../lib_a" }
+    "#,
+        )
+        .lib_package(
+            "lib_a",
+            r#"
+[package]
+name = "lib_a"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+    "#,
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), Some("bin_a".to_string())).unwrap();
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), false)
+        .unwrap();
+
+    // Assert
+    // root manifest + bin_a + lib_a (dependency)
+    assert_eq!(3, skeleton.manifests.len());
+    cook_directory
+        .child("bin_a")
+        .child("src")
+        .child("main.rs")
+        .assert("fn main() {}");
+    cook_directory
+        .child("lib_a")
+        .child("src")
+        .child("lib.rs")
+        .assert("");
+}
