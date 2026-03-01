@@ -391,8 +391,9 @@ version = "0.2.1"
 }
 
 #[test]
-pub fn filter_workspace_for_target() {
-    // Arrange
+pub fn filter_workspace_excludes_unrelated_member() {
+    // bin_a and bin_b are independent members.
+    // When targeting bin_a, bin_b should be excluded from the skeleton.
     let project = CargoWorkspace::new()
         .manifest(
             ".",
@@ -446,8 +447,9 @@ edition = "2018"
 }
 
 #[test]
-pub fn filter_workspace_for_target_with_dependency() {
-    // Arrange
+pub fn filter_workspace_includes_local_dependency() {
+    // bin_a depends on lib_a.
+    // When targeting bin_a, lib_a should be included in the skeleton.
     let project = CargoWorkspace::new()
         .manifest(
             ".",
