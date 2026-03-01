@@ -401,3 +401,33 @@ fn selected_bin_transitive_scenario() -> Scenario {
         .member(Member::lib("mid").local_dep("leaf"))
         .member(Member::lib("leaf").external_dep("ryu@1"))
 }
+
+#[test]
+fn recipe_unchanged_when_unrelated_member_dep_added_for_selected_bin() {
+    // app depends on shared (both use itoa)
+    // other uses ryu and is not needed by app
+    // Adding a dep to other should not affect app's recipe
+    let scenario = Scenario::workspace()
+        .member(
+            Member::lib("app")
+                .local_dep("shared")
+                .external_dep("itoa@1")
+                .with_bin("app_cli"),
+        )
+        .member(Member::lib("shared").external_dep("itoa@1"))
+        .member(Member::lib("other").external_dep("ryu@1"));
+
+    // Adding a dep to unrelated member should not change recipe
+    scenario.run_with_options(
+        Modification::AddExternalDep {
+            member: "other",
+            dep: ExternalDepSpec {
+                name: "itoa",
+                version: "1",
+            },
+            section: DependencySection::Dependencies,
+        },
+        Expectation::RecipeUnchanged,
+        RunOptions::for_bin("app_cli"),
+    );
+}
