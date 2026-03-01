@@ -417,7 +417,6 @@ fn recipe_unchanged_when_unrelated_member_dep_added_for_selected_bin() {
         .member(Member::lib("shared").external_dep("itoa@1"))
         .member(Member::lib("other").external_dep("ryu@1"));
 
-    // Adding a dep to unrelated member should not change recipe
     scenario.run_with_options(
         Modification::AddExternalDep {
             member: "other",

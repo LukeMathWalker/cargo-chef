@@ -48,8 +48,7 @@ pub(super) fn filter_workspace_for_target(
     let members_to_members_graph = build_dependency_graph(&manifests, &workspace_members);
     let members_to_dependencies_graph = build_dependency_graph(&manifests, &workspace_dependencies);
 
-    let required_members =
-        collect_required_dependencies(&target_member, &members_to_members_graph);
+    let required_members = collect_required_dependencies(&target_member, &members_to_members_graph);
     let required_dependencies =
         collect_required_dependencies(&target_member, &members_to_dependencies_graph);
 
@@ -68,6 +67,7 @@ pub(super) fn filter_workspace_for_target(
     Ok(())
 }
 
+/// Builds a package to dependencies map, only including dependencies present in `target_dependencies`.
 fn build_dependency_graph(
     manifests: &[ParsedManifest],
     target_dependencies: &HashSet<String>,
@@ -93,7 +93,7 @@ fn build_dependency_graph(
     graph
 }
 
-/// Compute all transitive dependencies of the given target member.
+/// Returns all transitive dependencies of the given target member.
 fn collect_required_dependencies(
     target: &str,
     dependencies: &HashMap<String, HashSet<String>>,
