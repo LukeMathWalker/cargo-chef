@@ -1,141 +1,100 @@
 //! Workspace filtering for `--bin` builds.
 //!
-//! Filters unrequired workspace members from manifests and lockfile.
-//!
-//! Limitation: external/transitive deps are NOT filtered (e.g. `tokio-macros`
-//! stays even if `tokio` is removed).
+//! Filters unrequired workspace members and their dependencies from manifests and lockfile.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use anyhow::{Context, Result};
-use cargo_metadata::Metadata;
-use pathdiff::diff_paths;
+use anyhow::Result;
+use guppy::graph::{BuildTargetId, DependencyDirection, PackageGraph};
 use toml::Value;
 
 use crate::skeleton::ParsedManifest;
 
 pub(super) fn filter_workspace_for_target(
-    metadata: &Metadata,
+    graph: &PackageGraph,
     manifests: &mut Vec<ParsedManifest>,
     lock_file: &mut Option<Value>,
     target_name: &str,
 ) -> Result<()> {
-    let target_member = resolve_binary_to_package_name(metadata, target_name);
+    let workspace = graph.workspace();
 
-    let workspace_members = manifests
-        .iter()
-        .filter_map(|m| extract_package_name(&m.contents))
-        .collect();
-
-    let root_manifest = manifests
-        .iter_mut()
-        .find(|m| m.relative_path.to_str() == Some("Cargo.toml"))
-        .context("no root manifest found")?;
-
-    let root_manifest_contents = root_manifest
-        .contents
-        .get("workspace")
-        .context("get workspace")?;
-
-    let workspace_dependencies = match root_manifest_contents.get("dependencies") {
-        Some(v) => {
-            let table = v.as_table().context("dependencies must be a table")?;
-            table.iter().map(|(name, _)| name.to_string()).collect()
-        }
-        None => HashSet::new(),
+    // Find the target package by name or binary target
+    let target_pkg = match workspace.member_by_name(target_name) {
+        Ok(pkg) => pkg,
+        Err(_) => workspace
+            .iter()
+            .find(|pkg| {
+                pkg.build_targets()
+                    .any(|t| matches!(t.id(), BuildTargetId::Binary(name) if name == target_name))
+            })
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No workspace package or binary target named '{}'",
+                    target_name
+                )
+            })?,
     };
 
-    let members_to_members_graph = build_dependency_graph(&manifests, &workspace_members);
-    let members_to_dependencies_graph = build_dependency_graph(&manifests, &workspace_dependencies);
+    // Get transitive dependencies of target package
+    let resolved = graph
+        .query_forward(std::iter::once(target_pkg.id()))?
+        .resolve();
 
-    let required_members = collect_required_dependencies(&target_member, &members_to_members_graph);
-    let required_dependencies =
-        collect_required_dependencies(&target_member, &members_to_dependencies_graph);
+    // Collect workspace members required by the target (including transitive dependencies)
+    let required_members: HashSet<String> = workspace
+        .iter()
+        .filter(|ws_pkg| resolved.contains(ws_pkg.id()).unwrap_or(false))
+        .map(|ws_pkg| ws_pkg.name().to_string())
+        .collect();
 
-    filter_root_manifest(manifests, metadata, &required_members);
+    // 1. Filter manifests: keep root workspace manifest + required members
+    manifests.retain(|m| {
+        extract_package_name(&m.contents).is_none_or(|name| required_members.contains(&name))
+    });
 
-    filter_member_manifests(manifests, &required_members);
+    // 2. Update [workspace.members] in root manifest and remove default-members
+    filter_root_manifest(manifests, graph, &required_members)?;
 
-    filter_lockfile(
-        lock_file,
-        &workspace_members,
-        &workspace_dependencies,
-        &required_members,
-        &required_dependencies,
-    )?;
+    // 3. Collect ALL (name, version) required member pairs (workspace + external)
+    let closure_packages: HashSet<(String, String)> = resolved
+        .packages(DependencyDirection::Forward)
+        .map(|pkg| (pkg.name().to_string(), pkg.version().to_string()))
+        .collect();
+
+    // 4. Filter lockfile: keep only required packages
+    if let Some(lockfile) = lock_file {
+        filter_lockfile(lockfile, &closure_packages)?;
+    }
 
     Ok(())
 }
 
-/// Builds a package to dependencies map, only including dependencies present in `target_dependencies`.
-fn build_dependency_graph(
-    manifests: &[ParsedManifest],
-    target_dependencies: &HashSet<String>,
-) -> HashMap<String, HashSet<String>> {
-    let mut graph = HashMap::new();
-
-    for manifest in manifests {
-        if let Some(package_name) = extract_package_name(&manifest.contents) {
-            let mut dependencies = HashSet::new();
-            for key in ["dependencies", "dev-dependencies"] {
-                if let Some(table) = manifest.contents.get(key).and_then(|v| v.as_table()) {
-                    for (name, _) in table {
-                        if target_dependencies.contains(name.as_str()) {
-                            dependencies.insert(name.to_string());
-                        }
-                    }
-                }
-            }
-            graph.insert(package_name.clone(), dependencies);
-        }
-    }
-
-    graph
-}
-
-/// Returns all transitive dependencies of the given target member.
-fn collect_required_dependencies(
-    target: &str,
-    dependencies: &HashMap<String, HashSet<String>>,
-) -> HashSet<String> {
-    let mut keep = HashSet::new();
-    let mut stack = vec![target.to_string()];
-
-    while let Some(member) = stack.pop() {
-        if keep.insert(member.clone()) {
-            if let Some(children) = dependencies.get(&member) {
-                stack.extend(children.iter().cloned());
-            }
-        }
-    }
-
-    keep
-}
-
-/// Filters the root manifest to remove unrequired members.
+/// Filters `[workspace] members` to only include required packages.
 /// Also removes `default-members` if present.
 fn filter_root_manifest(
     manifests: &mut [ParsedManifest],
-    metadata: &Metadata,
+    graph: &PackageGraph,
     required_members: &HashSet<String>,
-) {
+) -> Result<()> {
     let workspace_toml = manifests
         .iter_mut()
         .find(|m| m.relative_path == std::path::PathBuf::from("Cargo.toml"));
 
     let Some(workspace) = workspace_toml.and_then(|toml| toml.contents.get_mut("workspace")) else {
-        return;
+        return Ok(());
     };
 
     if let Some(members) = workspace.get_mut("members") {
-        let workspace_root = &metadata.workspace_root;
-        let member_paths: Vec<toml::Value> = metadata
-            .workspace_packages()
+        let workspace_root = graph.workspace().root();
+        let member_paths: Vec<toml::Value> = graph
+            .workspace()
             .iter()
-            .filter(|package| required_members.contains(&package.name))
-            .filter_map(|package| {
-                diff_paths(&package.manifest_path, workspace_root)
-                    .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+            .filter(|pkg| required_members.contains(pkg.name()))
+            .filter_map(|pkg| {
+                let manifest_path = pkg.manifest_path();
+                manifest_path
+                    .parent()
+                    .and_then(|p| pathdiff::diff_paths(p, workspace_root))
                     .and_then(|d| d.to_str().map(|s| toml::Value::String(s.to_string())))
             })
             .collect();
@@ -148,39 +107,16 @@ fn filter_root_manifest(
     if let Some(workspace) = workspace.as_table_mut() {
         workspace.remove("default-members");
     }
+
+    Ok(())
 }
 
-/// Filters the member manifests to remove unrequired members.
-fn filter_member_manifests(
-    manifests: &mut Vec<ParsedManifest>,
-    required_members: &HashSet<String>,
-) {
-    manifests.retain(|manifest| {
-        extract_package_name(&manifest.contents).is_none_or(|name| required_members.contains(&name))
-    });
-}
-
-/// Filters the lockfile to remove unrequired workspace packages.
+/// Filters the lockfile to keep only required packages.
+/// Matches packages by (name, version) pairs.
 fn filter_lockfile(
-    lock_file: &mut Option<Value>,
-    workspace_members: &HashSet<String>,
-    workspace_dependencies: &HashSet<String>,
-    required_members: &HashSet<String>,
-    required_dependencies: &HashSet<String>,
+    lock_file: &mut Value,
+    required_packages: &HashSet<(String, String)>,
 ) -> Result<()> {
-    let Some(lock_file) = lock_file else {
-        return Ok(());
-    };
-
-    let all_workspace: HashSet<String> = workspace_members
-        .union(workspace_dependencies)
-        .cloned()
-        .collect();
-    let all_required: HashSet<String> = required_members
-        .union(required_dependencies)
-        .cloned()
-        .collect();
-
     let cargo_manifest::Value::Table(lock_table) = lock_file else {
         return Ok(());
     };
@@ -190,43 +126,21 @@ fn filter_lockfile(
         None => return Ok(()),
     };
 
-    // Limitation: transitive deps of removed packages are NOT filtered
-    // (e.g. tokio-macros stays even if tokio is removed).
     packages.retain(|package| {
-        let Some(name) = package
-            .as_table()
-            .and_then(|t| t.get("name"))
-            .and_then(|v| v.as_str())
-        else {
+        let Some(pkg_table) = package.as_table() else {
             return true;
         };
-        all_required.contains(name) || !all_workspace.contains(name)
+
+        let name = pkg_table.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let version = pkg_table
+            .get("version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        required_packages.contains(&(name.to_string(), version.to_string()))
     });
 
     Ok(())
-}
-
-// The binary name passed via --bin is not necessarily the package name.
-// Look up which package contains this binary target.
-fn resolve_binary_to_package_name(metadata: &Metadata, target_name: &str) -> String {
-    let workspace_packages = metadata.workspace_packages();
-
-    if workspace_packages
-        .iter()
-        .any(|package| package.name == target_name)
-    {
-        return target_name.to_string();
-    }
-
-    for package in workspace_packages {
-        for target in &package.targets {
-            if target.is_bin() && target.name == target_name {
-                return package.name.clone();
-            }
-        }
-    }
-
-    target_name.to_string()
 }
 
 fn extract_package_name(contents: &Value) -> Option<String> {
@@ -240,20 +154,6 @@ fn extract_package_name(contents: &Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_collect_required_dependencies() {
-        let mut graph = HashMap::new();
-        graph.insert("app".to_string(), HashSet::from(["core".to_string()]));
-        graph.insert("core".to_string(), HashSet::from(["utils".to_string()]));
-        graph.insert("utils".to_string(), HashSet::new());
-
-        let result = collect_required_dependencies("app", &graph);
-        assert!(result.contains("app"));
-        assert!(result.contains("core"));
-        assert!(result.contains("utils"));
-        assert_eq!(result.len(), 3);
-    }
 
     #[test]
     fn test_filter_lockfile() {
@@ -275,17 +175,12 @@ version = "1.0.0"
         .unwrap();
 
         let mut lockfile = Some(lockfile);
-        let workspace_members = HashSet::from(["app".to_string(), "lib".to_string()]);
-        let required_members = HashSet::from(["app".to_string()]);
+        let required_members = HashSet::from([
+            ("app".to_string(), "0.1.0".to_string()),
+            ("serde".to_string(), "1.0.0".to_string()),
+        ]);
 
-        filter_lockfile(
-            &mut lockfile,
-            &workspace_members,
-            &HashSet::new(),
-            &required_members,
-            &HashSet::new(),
-        )
-        .unwrap();
+        filter_lockfile(lockfile.as_mut().unwrap(), &required_members).unwrap();
 
         let packages = lockfile
             .as_ref()

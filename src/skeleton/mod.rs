@@ -11,7 +11,6 @@ use cargo_manifest::Product;
 use fs_err as fs;
 use globwalk::GlobWalkerBuilder;
 use guppy::graph::PackageGraph;
-use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -53,14 +52,13 @@ impl Skeleton {
 
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
-
-        let mut manifests = read::manifests(&base_path, &metadata)?;
+        let mut manifests = read::manifests(&base_path, &graph)?;
 
         let mut lock_file = read::lockfile(&base_path)?;
         let rust_toolchain_file = read::rust_toolchain(&base_path)?;
 
         if let Some(target) = &target {
-            filter_workspace_for_target(&metadata, &mut manifests, &mut lock_file, target)?;
+            filter_workspace_for_target(&graph, &mut manifests, &mut lock_file, target)?;
         }
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
