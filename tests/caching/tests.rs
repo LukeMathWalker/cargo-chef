@@ -390,6 +390,25 @@ fn multi_member_scenario() -> Scenario {
         .member(Member::lib("b").external_dep("itoa@1"))
 }
 
+#[test]
+fn recipe_is_unchanged_when_workspace_dep_added_for_unrelated_member_with_selected_bin() {
+    let scenario = Scenario::workspace()
+        .workspace_external_dep("itoa@1")
+        .member(Member::lib("app").workspace_dep("itoa").with_bin("app_cli"))
+        .member(Member::lib("other"));
+
+    scenario.run_with_options(
+        Modification::AddWorkspaceExternalDep {
+            dep: ExternalDepSpec {
+                name: "ryu",
+                version: "1",
+            },
+        },
+        Expectation::RecipeUnchanged,
+        RunOptions::for_bin("app_cli"),
+    );
+}
+
 fn selected_bin_transitive_scenario() -> Scenario {
     Scenario::workspace()
         .member(

@@ -331,6 +331,161 @@ version = "0.0.1"
 }
 
 #[test]
+pub fn filter_workspace_excludes_unrelated_member() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = ["bin_a", "bin_b"]
+    "#,
+        )
+        .bin_package(
+            "bin_a",
+            r#"
+[package]
+name = "bin_a"
+version = "0.1.0"
+edition = "2021"
+    "#,
+        )
+        .bin_package(
+            "bin_b",
+            r#"
+[package]
+name = "bin_b"
+version = "0.1.0"
+edition = "2021"
+    "#,
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), Some("bin_a".to_string())).unwrap();
+
+    // Assert — only root workspace manifest + bin_a
+    assert_eq!(skeleton.manifests.len(), 2);
+
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), false)
+        .unwrap();
+    assert!(cook_directory.path().join("bin_a/src/main.rs").exists());
+    assert!(!cook_directory.path().join("bin_b/src/main.rs").exists());
+}
+
+#[test]
+pub fn filter_workspace_includes_local_dependency() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = ["bin_a", "lib_a", "bin_b"]
+    "#,
+        )
+        .bin_package(
+            "bin_a",
+            r#"
+[package]
+name = "bin_a"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lib_a = { path = "../lib_a" }
+    "#,
+        )
+        .lib_package(
+            "lib_a",
+            r#"
+[package]
+name = "lib_a"
+version = "0.1.0"
+edition = "2021"
+    "#,
+        )
+        .bin_package(
+            "bin_b",
+            r#"
+[package]
+name = "bin_b"
+version = "0.1.0"
+edition = "2021"
+    "#,
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), Some("bin_a".to_string())).unwrap();
+
+    // Assert — root workspace + bin_a + lib_a (bin_b excluded)
+    assert_eq!(skeleton.manifests.len(), 3);
+
+    let cook_directory = TempDir::new().unwrap();
+    skeleton
+        .build_minimum_project(cook_directory.path(), false)
+        .unwrap();
+    assert!(cook_directory.path().join("bin_a/src/main.rs").exists());
+    assert!(cook_directory.path().join("lib_a/src/lib.rs").exists());
+    assert!(!cook_directory.path().join("bin_b/src/main.rs").exists());
+}
+
+#[test]
+pub fn filter_workspace_deps_handles_renamed_packages() {
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = ["bin_a", "bin_b"]
+
+[workspace.dependencies]
+my_itoa = { package = "itoa", version = "1" }
+my_ryu = { package = "ryu", version = "1" }
+        "#,
+        )
+        .bin_package(
+            "bin_a",
+            r#"
+[package]
+name = "bin_a"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+my_itoa = { workspace = true }
+        "#,
+        )
+        .bin_package(
+            "bin_b",
+            r#"
+[package]
+name = "bin_b"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+my_ryu = { workspace = true }
+        "#,
+        )
+        .build();
+
+    let skeleton = Skeleton::derive(project.path(), Some("bin_a".to_string())).unwrap();
+
+    // Root manifest should keep my_itoa but not my_ryu
+    let root = skeleton
+        .manifests
+        .iter()
+        .find(|m| m.relative_path == std::path::Path::new("Cargo.toml"))
+        .unwrap();
+    assert!(root.contents.contains("my_itoa"));
+    assert!(!root.contents.contains("my_ryu"));
+}
+
+#[test]
 pub fn renamed_local_dependencies() {
     // Arrange
     let project = CargoWorkspace::new()
