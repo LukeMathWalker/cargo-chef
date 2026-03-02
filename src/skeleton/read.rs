@@ -2,7 +2,7 @@
 use super::ParsedManifest;
 use crate::skeleton::target::{Target, TargetKind};
 use crate::RustToolchainFile;
-use cargo_metadata::{Metadata, Package};
+use guppy::graph::{BuildTargetId, BuildTargetKind, PackageGraph, PackageMetadata};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -39,26 +39,27 @@ pub(super) fn config<P: AsRef<Path>>(base_path: &P) -> Result<Option<String>, an
 
 pub(super) fn manifests<P: AsRef<Path>>(
     base_path: &P,
-    metadata: &Metadata,
+    graph: &PackageGraph,
 ) -> Result<Vec<ParsedManifest>, anyhow::Error> {
-    let mut packages: BTreeMap<PathBuf, BTreeSet<Target>> = metadata
-        .workspace_packages()
+    let workspace = graph.workspace();
+
+    let mut packages: BTreeMap<PathBuf, BTreeSet<Target>> = workspace
         .iter()
-        .copied()
-        .chain(metadata.root_package())
-        .map(|p| {
+        .map(|pkg| {
             (
-                p.manifest_path.clone().into_std_path_buf(),
-                gather_targets(p),
+                pkg.manifest_path().as_std_path().to_path_buf(),
+                gather_targets(&pkg),
             )
         })
         .collect();
 
-    if metadata.root_package().is_none() {
-        // At the root, there might be a Cargo.toml manifest with a [workspace] section.
-        // However, if this root manifest doesn't contain [package], it is not considered a package
-        // by cargo metadata. Therefore, we have to add it manually.
-        // Workspaces currently cannot be nested, so this should only happen at the root.
+    // At the root, there might be a Cargo.toml manifest with a [workspace] section.
+    // However, if this root manifest doesn't contain [package], it is not considered a package
+    // by cargo metadata. Therefore, we have to add it manually.
+    // Workspaces currently cannot be nested, so this should only happen at the root.
+    let root_manifest = workspace.root().join("Cargo.toml");
+    let root_is_package = packages.keys().any(|p| p == root_manifest.as_std_path());
+    if !root_is_package {
         packages.insert(base_path.as_ref().join("Cargo.toml"), Default::default());
     }
 
@@ -111,39 +112,36 @@ pub(super) fn manifests<P: AsRef<Path>>(
     Ok(manifests)
 }
 
-fn gather_targets(package: &Package) -> BTreeSet<Target> {
-    let manifest_path = package.manifest_path.clone().into_std_path_buf();
+fn gather_targets(package: &PackageMetadata) -> BTreeSet<Target> {
+    let manifest_path = package.manifest_path().as_std_path();
     let root_dir = manifest_path.parent().unwrap();
     package
-        .targets
-        .iter()
+        .build_targets()
         .map(|target| {
-            let relative_path = pathdiff::diff_paths(&target.src_path, root_dir).unwrap();
-            let kind = if target.is_bench() {
-                TargetKind::Bench
-            } else if target.is_example() {
-                TargetKind::Example
-            } else if target.is_test() {
-                TargetKind::Test
-            } else if target.is_bin() {
-                TargetKind::Bin
-            } else if target.is_custom_build() {
-                TargetKind::BuildScript
-            } else {
-                // If a library has custom crate type (e.g. "cdylib"), it's kind will be "cdylib"
-                // instead of just "lib". Therefore, we assume that this target is a library.
-                TargetKind::Lib {
-                    is_proc_macro: target
-                        .crate_types
-                        .iter()
-                        .any(|t| t.as_str() == "proc-macro"),
-                }
+            let relative_path =
+                pathdiff::diff_paths(target.path().as_std_path(), root_dir).unwrap();
+            let kind = match target.id() {
+                BuildTargetId::Library => match target.kind() {
+                    BuildTargetKind::ProcMacro => TargetKind::Lib {
+                        is_proc_macro: true,
+                    },
+                    _ => TargetKind::Lib {
+                        is_proc_macro: false,
+                    },
+                },
+                BuildTargetId::Binary(_) => TargetKind::Bin,
+                BuildTargetId::Test(_) => TargetKind::Test,
+                BuildTargetId::Benchmark(_) => TargetKind::Bench,
+                BuildTargetId::Example(_) => TargetKind::Example,
+                BuildTargetId::BuildScript => TargetKind::BuildScript,
+                // BuildTargetId is non_exhaustive
+                other => panic!("unknown build target kind: {:?}", other),
             };
 
             Target {
                 path: relative_path,
                 kind,
-                name: target.name.clone(),
+                name: target.name().to_string(),
             }
         })
         .collect()
