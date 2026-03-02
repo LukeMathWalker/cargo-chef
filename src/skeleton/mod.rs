@@ -8,9 +8,10 @@ use anyhow::Context;
 use cargo_manifest::Product;
 use fs_err as fs;
 use globwalk::GlobWalkerBuilder;
-use guppy::graph::PackageGraph;
+use guppy::graph::{DependencyDirection, PackageGraph};
 use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -52,11 +53,10 @@ impl Skeleton {
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
         let mut manifests = read::manifests(&base_path, &graph)?;
-        if let Some(member) = member {
-            ignore_all_members_except(&mut manifests, &graph, member);
-        }
-
         let mut lock_file = read::lockfile(&base_path)?;
+        if let Some(member) = &member {
+            filter_to_member_closure(&mut manifests, &mut lock_file, &graph, member)?;
+        }
         let rust_toolchain_file = read::rust_toolchain(&base_path)?;
 
         version_masking::mask_local_crate_versions(&mut manifests, &mut lock_file);
@@ -317,15 +317,95 @@ fn extract_package_graph(path: &Path) -> Result<PackageGraph, anyhow::Error> {
     cmd.build_graph().context("Cannot extract package graph")
 }
 
-/// If the top-level `Cargo.toml` has a `members` field, replace it with
-/// a list consisting of just the path to the package.
+/// Filter the skeleton down to only the workspace members (and their transitive
+/// dependencies) needed to build `member`.
 ///
-/// Also deletes the `default-members` field because it does not play nicely
-/// with a modified `members` field and has no effect on cooking the final recipe.
-fn ignore_all_members_except(
+/// Uses guppy's `query_forward` + `resolve` to compute the full transitive
+/// dependency closure, then:
+/// 1. Removes manifests for workspace members outside the closure
+/// 2. Updates `[workspace.members]` to list only closure members
+/// 3. Removes `[workspace.default-members]`
+/// 4. Filters the lockfile to only packages in the closure
+fn filter_to_member_closure(
+    manifests: &mut Vec<ParsedManifest>,
+    lock_file: &mut Option<toml::Value>,
+    graph: &PackageGraph,
+    member: &str,
+) -> Result<(), anyhow::Error> {
+    let ws = graph.workspace();
+    // `member` may be a package name or a binary target name (from --bin).
+    // Try package name first, then search for a binary target.
+    let pkg = match ws.member_by_name(member) {
+        Ok(pkg) => pkg,
+        Err(_) => ws
+            .iter()
+            .find(|pkg| {
+                pkg.build_targets().any(|t| {
+                    matches!(t.id(), guppy::graph::BuildTargetId::Binary(name) if name == member)
+                })
+            })
+            .ok_or_else(|| {
+                anyhow::anyhow!("No workspace package or binary target named '{member}'")
+            })?,
+    };
+
+    // Get transitive closure of all dependencies
+    let resolved = graph.query_forward(std::iter::once(pkg.id()))?.resolve();
+
+    // Collect workspace member names in the closure
+    let closure_members: HashSet<String> = ws
+        .iter()
+        .filter(|ws_pkg| resolved.contains(ws_pkg.id()).unwrap_or(false))
+        .map(|ws_pkg| ws_pkg.name().to_string())
+        .collect();
+
+    // 1. Filter manifests: keep root workspace manifest + closure members
+    manifests.retain(|m| {
+        extract_pkg_name(&m.contents).is_none_or(|name| closure_members.contains(&name))
+    });
+
+    // 2. Collect workspace dep keys referenced by closure members
+    let referenced_workspace_deps = collect_workspace_dep_keys(manifests);
+
+    // 3. Update [workspace.members], remove default-members, filter [workspace.dependencies]
+    update_workspace_members(
+        manifests,
+        graph,
+        &closure_members,
+        &referenced_workspace_deps,
+    );
+
+    // 4. Collect ALL (name, version) pairs in the closure (workspace + external)
+    let closure_packages: HashSet<(String, String)> = resolved
+        .packages(DependencyDirection::Forward)
+        .map(|pkg| (pkg.name().to_string(), pkg.version().to_string()))
+        .collect();
+
+    // 5. Filter lockfile: keep only packages in the closure
+    if let Some(lockfile) = lock_file {
+        filter_lockfile_packages(lockfile, &closure_packages);
+    }
+
+    Ok(())
+}
+
+/// Extract the `[package].name` from a parsed TOML manifest, if present.
+fn extract_pkg_name(contents: &toml::Value) -> Option<String> {
+    contents
+        .get("package")?
+        .get("name")?
+        .as_str()
+        .map(|s| s.to_string())
+}
+
+/// Replace `[workspace.members]` with relative paths for all closure members,
+/// remove `[workspace.default-members]`, and filter `[workspace.dependencies]`
+/// to only those referenced by closure members.
+fn update_workspace_members(
     manifests: &mut [ParsedManifest],
     graph: &PackageGraph,
-    member: String,
+    closure_members: &HashSet<String>,
+    referenced_workspace_deps: &HashSet<String>,
 ) {
     let workspace_toml = manifests
         .iter_mut()
@@ -336,22 +416,78 @@ fn ignore_all_members_except(
             let ws = graph.workspace();
             let workspace_root = ws.root();
 
-            if let Ok(pkg) = ws.member_by_name(&member) {
-                // Make this a relative path to the workspace, and remove the `Cargo.toml` child.
-                let member_cargo_path = diff_paths(pkg.manifest_path(), workspace_root);
-                let member_workspace_path = member_cargo_path
-                    .as_ref()
-                    .and_then(|path| path.parent())
-                    .and_then(|dir| dir.to_str());
+            let member_paths: Vec<toml::Value> = ws
+                .iter()
+                .filter(|pkg| closure_members.contains(pkg.name()))
+                .filter_map(|pkg| {
+                    let cargo_path = diff_paths(pkg.manifest_path(), workspace_root)?;
+                    let dir = cargo_path.parent()?;
+                    Some(toml::Value::String(dir.to_str()?.to_string()))
+                })
+                .collect();
 
-                if let Some(member_path) = member_workspace_path {
-                    *members =
-                        toml::Value::Array(vec![toml::Value::String(member_path.to_string())]);
-                }
-            }
+            *members = toml::Value::Array(member_paths);
         }
         if let Some(workspace) = workspace.as_table_mut() {
             workspace.remove("default-members");
+            if let Some(deps) = workspace
+                .get_mut("dependencies")
+                .and_then(|d| d.as_table_mut())
+            {
+                deps.retain(|key, _| referenced_workspace_deps.contains(key));
+            }
         }
+    }
+}
+
+/// Collect all `[workspace.dependencies]` keys referenced (via `workspace = true`)
+/// by the given manifests.
+fn collect_workspace_dep_keys(manifests: &[ParsedManifest]) -> HashSet<String> {
+    let mut keys = HashSet::new();
+    for manifest in manifests {
+        if extract_pkg_name(&manifest.contents).is_none() {
+            continue; // skip root workspace manifest
+        }
+        collect_workspace_keys_from(&manifest.contents, &mut keys);
+        if let Some(targets) = manifest.contents.get("target").and_then(|t| t.as_table()) {
+            for (_, target_config) in targets {
+                collect_workspace_keys_from(target_config, &mut keys);
+            }
+        }
+    }
+    keys
+}
+
+fn collect_workspace_keys_from(value: &toml::Value, keys: &mut HashSet<String>) {
+    for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        if let Some(deps) = value.get(section).and_then(|d| d.as_table()) {
+            for (key, dep) in deps {
+                if dep
+                    .get("workspace")
+                    .and_then(|w| w.as_bool())
+                    .unwrap_or(false)
+                {
+                    keys.insert(key.clone());
+                }
+            }
+        }
+    }
+}
+
+/// Retain only lockfile `[[package]]` entries whose `(name, version)` pair
+/// is in the resolved closure.
+fn filter_lockfile_packages(
+    lockfile: &mut toml::Value,
+    closure_packages: &HashSet<(String, String)>,
+) {
+    if let Some(packages) = lockfile.get_mut("package").and_then(|p| p.as_array_mut()) {
+        packages.retain(|pkg| {
+            let name = pkg.get("name").and_then(|n| n.as_str());
+            let version = pkg.get("version").and_then(|v| v.as_str());
+            match (name, version) {
+                (Some(n), Some(v)) => closure_packages.contains(&(n.to_string(), v.to_string())),
+                _ => true,
+            }
+        });
     }
 }
