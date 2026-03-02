@@ -48,7 +48,11 @@ impl Skeleton {
         base_path: P,
         member: Option<String>,
     ) -> Result<Self, anyhow::Error> {
-        let graph = extract_package_graph(base_path.as_ref())?;
+        // Use `--no-deps` to skip dependency resolution when we don't need the full graph
+        // (i.e. no `--bin` filtering). We still need full resolution when there's no existing
+        // Cargo.lock, since `cargo metadata` generates it as a side effect.
+        let no_deps = member.is_none() && base_path.as_ref().join("Cargo.lock").exists();
+        let graph = extract_package_graph(base_path.as_ref(), no_deps)?;
 
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
@@ -311,9 +315,12 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
     Ok(serialised_manifests)
 }
 
-fn extract_package_graph(path: &Path) -> Result<PackageGraph, anyhow::Error> {
+fn extract_package_graph(path: &Path, no_deps: bool) -> Result<PackageGraph, anyhow::Error> {
     let mut cmd = guppy::MetadataCommand::new();
     cmd.current_dir(path);
+    if no_deps {
+        cmd.no_deps();
+    }
     cmd.build_graph().context("Cannot extract package graph")
 }
 
