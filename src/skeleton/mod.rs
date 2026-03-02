@@ -6,9 +6,9 @@ use crate::skeleton::target::{Target, TargetKind};
 use crate::OptimisationProfile;
 use anyhow::Context;
 use cargo_manifest::Product;
-use cargo_metadata::Metadata;
 use fs_err as fs;
 use globwalk::GlobWalkerBuilder;
+use guppy::graph::PackageGraph;
 use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -47,13 +47,13 @@ impl Skeleton {
         base_path: P,
         member: Option<String>,
     ) -> Result<Self, anyhow::Error> {
-        let metadata = extract_cargo_metadata(base_path.as_ref())?;
+        let graph = extract_package_graph(base_path.as_ref())?;
 
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
-        let mut manifests = read::manifests(&base_path, &metadata)?;
+        let mut manifests = read::manifests(&base_path, &graph)?;
         if let Some(member) = member {
-            ignore_all_members_except(&mut manifests, &metadata, member);
+            ignore_all_members_except(&mut manifests, &graph, member);
         }
 
         let mut lock_file = read::lockfile(&base_path)?;
@@ -311,12 +311,10 @@ fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, 
     Ok(serialised_manifests)
 }
 
-fn extract_cargo_metadata(path: &Path) -> Result<cargo_metadata::Metadata, anyhow::Error> {
-    let mut cmd = cargo_metadata::MetadataCommand::new();
+fn extract_package_graph(path: &Path) -> Result<PackageGraph, anyhow::Error> {
+    let mut cmd = guppy::MetadataCommand::new();
     cmd.current_dir(path);
-    cmd.no_deps();
-
-    cmd.exec().context("Cannot extract Cargo metadata")
+    cmd.build_graph().context("Cannot extract package graph")
 }
 
 /// If the top-level `Cargo.toml` has a `members` field, replace it with
@@ -326,7 +324,7 @@ fn extract_cargo_metadata(path: &Path) -> Result<cargo_metadata::Metadata, anyho
 /// with a modified `members` field and has no effect on cooking the final recipe.
 fn ignore_all_members_except(
     manifests: &mut [ParsedManifest],
-    metadata: &Metadata,
+    graph: &PackageGraph,
     member: String,
 ) {
     let workspace_toml = manifests
@@ -335,15 +333,12 @@ fn ignore_all_members_except(
 
     if let Some(workspace) = workspace_toml.and_then(|toml| toml.contents.get_mut("workspace")) {
         if let Some(members) = workspace.get_mut("members") {
-            let workspace_root = &metadata.workspace_root;
-            let workspace_packages = metadata.workspace_packages();
+            let ws = graph.workspace();
+            let workspace_root = ws.root();
 
-            if let Some(pkg) = workspace_packages
-                .into_iter()
-                .find(|pkg| pkg.name == member)
-            {
+            if let Ok(pkg) = ws.member_by_name(&member) {
                 // Make this a relative path to the workspace, and remove the `Cargo.toml` child.
-                let member_cargo_path = diff_paths(pkg.manifest_path.as_os_str(), workspace_root);
+                let member_cargo_path = diff_paths(pkg.manifest_path(), workspace_root);
                 let member_workspace_path = member_cargo_path
                     .as_ref()
                     .and_then(|path| path.parent())
