@@ -1,12 +1,12 @@
 //! Runs `cargo-chef` and `cargo` commands, and parses build output.
 
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use std::collections::HashSet;
 use std::path::Path;
 use std::process::{Command as StdCommand, Output};
 
 pub(crate) fn run_prepare(project_dir: &Path, recipe_path: &Path, bin: Option<&str>) {
-    let mut cmd = Command::cargo_bin("cargo-chef").unwrap();
+    let mut cmd = cargo_bin_cmd!("cargo-chef");
     cmd.arg("chef")
         .arg("prepare")
         .arg("--recipe-path")
@@ -32,7 +32,7 @@ pub(crate) fn run_cook(
     target_dir: Option<&str>,
 ) -> Output {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-    let mut cmd = Command::cargo_bin("cargo-chef").unwrap();
+    let mut cmd = cargo_bin_cmd!("cargo-chef");
     cmd.arg("chef")
         .arg("cook")
         .arg("--recipe-path")
