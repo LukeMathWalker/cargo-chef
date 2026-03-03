@@ -229,13 +229,6 @@ anyhow = { workspace = true }
     check(
         &second.contents,
         expect_test::expect![[r#"
-            [[bin]]
-            path = "src/main.rs"
-            name = "project_a"
-            plugin = false
-            proc-macro = false
-            required-features = []
-
             [package]
             name = "project_a"
 
@@ -250,6 +243,11 @@ anyhow = { workspace = true }
 
             [dependencies.anyhow]
             workspace = true
+
+            [[bin]]
+            path = "src/main.rs"
+            name = "project_a"
+            required-features = []
         "#]],
     );
 
@@ -278,8 +276,6 @@ anyhow = { workspace = true }
             [lib]
             path = "src/lib.rs"
             name = "project_b"
-            plugin = false
-            proc-macro = false
             required-features = []
             crate-type = ["cdylib"]
         "#]],
@@ -537,8 +533,6 @@ version = "0.2.1"
             [lib]
             path = "src/lib.rs"
             name = "a"
-            plugin = false
-            proc-macro = false
             required-features = []
             crate-type = ["lib"]
         "#]],

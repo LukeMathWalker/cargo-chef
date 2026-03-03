@@ -175,5 +175,6 @@ fn empty_workspace() -> Workspace {
         dependencies: None,
         package: None,
         metadata: None,
+        lints: None,
     }
 }

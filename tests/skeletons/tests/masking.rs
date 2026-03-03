@@ -259,14 +259,6 @@ version = "1.8.1"
     check(
         &second.contents,
         expect_test::expect![[r#"
-            [[bin]]
-            path = "src/main.rs"
-            name = "test-dummy"
-            plugin = false
-            proc-macro = false
-            edition = "2018"
-            required-features = []
-
             [package]
             name = "project-a"
             edition = "2018"
@@ -274,6 +266,12 @@ version = "1.8.1"
 
             [dependencies.either]
             version = "=1.8.1"
+
+            [[bin]]
+            path = "src/main.rs"
+            name = "test-dummy"
+            edition = "2018"
+            required-features = []
         "#]],
     );
     let third = skeleton.manifests[2].clone();
@@ -295,8 +293,6 @@ version = "1.8.1"
             [lib]
             path = "src/lib.rs"
             name = "project_b"
-            plugin = false
-            proc-macro = false
             edition = "2018"
             required-features = []
             crate-type = ["cdylib"]
@@ -411,8 +407,6 @@ version = "0.10.5"
             [lib]
             path = "src/lib.rs"
             name = "either"
-            plugin = false
-            proc-macro = false
             edition = "2021"
             required-features = []
             crate-type = ["cdylib"]
@@ -422,14 +416,6 @@ version = "0.10.5"
     check(
         &third.contents,
         expect_test::expect![[r#"
-            [[bin]]
-            path = "src/main.rs"
-            name = "project_a"
-            plugin = false
-            proc-macro = false
-            edition = "2021"
-            required-features = []
-
             [package]
             name = "project_a"
             edition = "2021"
@@ -437,6 +423,12 @@ version = "0.10.5"
 
             [dependencies]
             itertools = "=0.10.5"
+
+            [[bin]]
+            path = "src/main.rs"
+            name = "project_a"
+            edition = "2021"
+            required-features = []
         "#]],
     );
 }
@@ -529,14 +521,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
     check(
         &second.contents,
         expect_test::expect![[r#"
-            [[bin]]
-            path = "src/main.rs"
-            name = "binary"
-            plugin = false
-            proc-macro = false
-            edition = "2021"
-            required-features = []
-
             [package]
             name = "binary"
             edition = "2021"
@@ -549,6 +533,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
             version = "0.0.1"
             path = "../either"
             package = "either"
+
+            [[bin]]
+            path = "src/main.rs"
+            name = "binary"
+            edition = "2021"
+            required-features = []
         "#]],
     );
     let third = skeleton.manifests[2].clone();
@@ -565,8 +555,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
             [lib]
             path = "src/lib.rs"
             name = "either"
-            plugin = false
-            proc-macro = false
             edition = "2021"
             required-features = []
             crate-type = ["lib"]
