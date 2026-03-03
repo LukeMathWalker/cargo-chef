@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Minimize generated recipe to increase cache hit ratio when `cargo chef prepare` is invoked with a `--bin` option
+- Minimize generated recipe to increase cache hit ratio when `cargo chef prepare` is invoked with a `--bin` option (by [@preiter93](https://github.com/preiter93))
 - Publish a prebuilt `cargo-chef` Docker image for every upstream Rust tag. 
 - Broaden the set of supported architectures for Docker images to include `i386` and `arm32v7`
 
