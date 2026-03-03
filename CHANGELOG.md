@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.76](https://github.com/LukeMathWalker/cargo-chef/compare/v0.1.75...v0.1.76) - 2026-03-03
+
+### Added
+
+- Minimize generated recipe to increase cache hit ratio when `cargo chef prepare` is invoked with a `--bin` option
+- Publish a prebuilt `cargo-chef` Docker image for every upstream Rust tag. 
+- Broaden the set of supported architectures for Docker images to include `i386` and `arm32v7`
+
+### Other
+
+- Upgrade to latest versions of all dependencies
+- Allow cargo-chef to fetch dependencies in `cargo chef prepare`, if either `--bin` was specified or
+  the lockfile is missing.
+
 ## [0.1.75](https://github.com/LukeMathWalker/cargo-chef/compare/v0.1.74...v0.1.75) - 2026-02-28
 
 ### Added
