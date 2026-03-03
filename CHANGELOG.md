@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.77](https://github.com/LukeMathWalker/cargo-chef/compare/v0.1.76...v0.1.77) - 2026-03-03
+
+### Fixed
+
+- Remove lints from manifests in recipe.json
+
 ## [0.1.76](https://github.com/LukeMathWalker/cargo-chef/compare/v0.1.75...v0.1.76) - 2026-03-03
 
 ### Added
