@@ -401,3 +401,63 @@ edition = "2018"
         );
     }
 }
+
+#[test]
+pub fn lints_are_removed_from_all_manifests() {
+    // Arrange - workspace with [workspace.lints] and member with [lints] workspace = true
+    // See https://github.com/LukeMathWalker/cargo-chef/issues/343
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[workspace]
+members = [
+    "crate_a",
+]
+
+[workspace.lints.rust]
+missing_docs = "deny"
+"#,
+        )
+        .lib_package(
+            "crate_a",
+            r#"
+[package]
+name = "crate_a"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+"#,
+        )
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+
+    // Assert - lints should be stripped from all manifests
+    for manifest in &skeleton.manifests {
+        let parsed: toml::Value = toml::from_str(&manifest.contents).unwrap();
+
+        // No top-level [lints]
+        assert!(
+            parsed.get("lints").is_none(),
+            "Expected [lints] to be removed from manifest at {:?}, but found: {:?}",
+            manifest.relative_path,
+            parsed.get("lints")
+        );
+
+        // No [workspace.lints]
+        if let Some(workspace) = parsed.get("workspace") {
+            assert!(
+                workspace.get("lints").is_none(),
+                "Expected [workspace.lints] to be removed from manifest at {:?}, but found: {:?}",
+                manifest.relative_path,
+                workspace.get("lints")
+            );
+        }
+    }
+}
