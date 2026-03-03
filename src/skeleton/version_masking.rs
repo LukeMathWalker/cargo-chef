@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::ParsedManifest;
 
 /// All local dependencies are emptied out when running `prepare`.
@@ -23,7 +25,7 @@ const CONST_VERSION: &str = "0.0.1";
 
 fn mask_local_versions_in_lockfile(
     lock_file: &mut toml::Value,
-    local_package_names: &[toml::Value],
+    local_package_names: &HashSet<String>,
 ) {
     if let Some(packages) = lock_file
         .get_mut("package")
@@ -35,6 +37,7 @@ fn mask_local_versions_in_lockfile(
             .filter(|package| {
                 package
                     .get("name")
+                    .and_then(|name| name.as_str())
                     .map(|name| local_package_names.contains(name))
                     .unwrap_or_default()
                     && package.get("source").is_none()
@@ -50,7 +53,7 @@ fn mask_local_versions_in_lockfile(
 
 fn mask_local_versions_in_manifests(
     manifests: &mut [ParsedManifest],
-    local_package_names: &[toml::Value],
+    local_package_names: &HashSet<String>,
 ) {
     for manifest in manifests.iter_mut() {
         if let Some(package) = manifest.contents.get_mut("package") {
@@ -65,10 +68,10 @@ fn mask_local_versions_in_manifests(
 }
 
 fn mask_local_dependency_versions(
-    local_package_names: &[toml::Value],
+    local_package_names: &HashSet<String>,
     manifest: &mut ParsedManifest,
 ) {
-    fn _mask(local_package_names: &[toml::Value], toml_value: &mut toml::Value) {
+    fn _mask(local_package_names: &HashSet<String>, toml_value: &mut toml::Value) {
         for dependency_key in ["dependencies", "dev-dependencies", "build-dependencies"] {
             if let Some(dependencies) = toml_value.get_mut(dependency_key) {
                 if let Some(dependencies) = dependencies.as_table_mut() {
@@ -83,13 +86,16 @@ fn mask_local_dependency_versions(
                         if let Some(package_name) = dependency.get("package") {
                             // We are dealing with a renamed package, so we check the name of the
                             // "source" package.
-                            if local_package_names.contains(package_name) {
+                            if package_name
+                                .as_str()
+                                .is_some_and(|n| local_package_names.contains(n))
+                            {
                                 must_mark_version = true;
                             }
                         } else {
                             // The package has not been renamed, so we check the name of the
                             // key in the dependencies table.
-                            if local_package_names.contains(&toml::Value::String(key.to_string())) {
+                            if local_package_names.contains(key.as_str()) {
                                 must_mark_version = true;
                             }
                         }
@@ -149,14 +155,15 @@ fn mask_local_dependency_versions(
     }
 }
 
-fn parse_local_crate_names(manifests: &[ParsedManifest]) -> Vec<toml::Value> {
-    let mut local_package_names = vec![];
-    for manifest in manifests.iter() {
-        if let Some(package) = manifest.contents.get("package") {
-            if let Some(name) = package.get("name") {
-                local_package_names.push(name.to_owned());
-            }
-        }
-    }
-    local_package_names
+fn parse_local_crate_names(manifests: &[ParsedManifest]) -> HashSet<String> {
+    manifests
+        .iter()
+        .filter_map(|m| {
+            m.contents
+                .get("package")?
+                .get("name")?
+                .as_str()
+                .map(String::from)
+        })
+        .collect()
 }
