@@ -7,3 +7,6 @@ ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 RUN ((cat /etc/os-release | grep ID | grep alpine) && apk add --no-cache musl-dev || true) \
     && cargo install cargo-chef --locked --version $CHEF_TAG \
     && rm -rf $CARGO_HOME/registry/
+
+LABEL org.opencontainers.image.source="https://github.com/LukeMathWalker/cargo-chef"
+LABEL org.opencontainers.image.description="Cache the dependencies of your Rust project and speed up your Docker builds"
