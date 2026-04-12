@@ -461,3 +461,70 @@ workspace = true
         }
     }
 }
+
+#[test]
+pub fn test_toml_v1_1() {
+    // Arrange
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+reqwest = {
+    version = "0.13",
+    default-features = false,
+    features = [
+        "json",
+    ]
+}
+
+"#,
+        )
+        .touch("src/main.rs")
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+
+    let manifest = &skeleton.manifests[0];
+    let parsed: toml::Value = toml::from_str(&manifest.contents).unwrap();
+
+    let reqwest = parsed
+        .get("dependencies")
+        .and_then(|deps| deps.get("reqwest"))
+        .expect("Expected to find reqwest dependency in manifest")
+        .as_table()
+        .expect("Expected reqwest dependency to be a table");
+    assert_eq!(
+        reqwest.get("version").and_then(|v| v.as_str()),
+        Some("0.13"),
+        "Expected reqwest version to be '0.13' (TOML 1.1 multiline inline table)"
+    );
+
+    assert_eq!(
+        reqwest.get("default-features").and_then(|v| v.as_bool()),
+        Some(false),
+        "Expected reqwest default-features to be false"
+    );
+
+    let features = reqwest
+        .get("features")
+        .expect("Expected to find features in reqwest dependency")
+        .as_array()
+        .expect("Expected features to be an array");
+
+    let feature_names: Vec<&str> = features.iter().filter_map(|f| f.as_str()).collect();
+    assert_eq!(
+        feature_names,
+        vec!["json"],
+        "Expected features to contain exactly 'json' from TOML 1.1 multiline inline table"
+    );
+}
