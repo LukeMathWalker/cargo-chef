@@ -1,20 +1,22 @@
-//! Strip intra-workspace path dependencies from a skeleton to produce a
+//! Strip all `path = "…"` dependencies from a skeleton to produce a
 //! "third-party only" recipe whose content is stable across any pure
 //! workspace-internal change.
 //!
 //! # Why
 //!
 //! `cargo chef prepare` captures every workspace manifest including the
-//! intra-workspace `path = "..."` dependencies.  Any structural change to the
+//! `path = "..."` dependencies.  Any structural change to the
 //! workspace (adding a crate, splitting one, renaming a binary target, etc.)
 //! changes `recipe.json`, which invalidates the `cargo chef cook` Docker layer
 //! and forces a full recompile of all third-party crates.
 //!
 //! `strip_path_deps` post-processes an already-derived [`Skeleton`] by:
 //!
-//! 1. Removing every dependency entry that carries a `path = "..."` field from
-//!    every manifest in the skeleton (top-level sections, target-specific
-//!    sections, and `[workspace.dependencies]`).
+//! 1. Removing **every** dependency entry that carries a `path = "..."` field
+//!    from every manifest in the skeleton (top-level sections, target-specific
+//!    sections, and `[workspace.dependencies]`).  This includes both
+//!    intra-workspace path deps and any other local path deps (e.g. out-of-tree
+//!    crates referenced by absolute or relative path).
 //!
 //! 2. Removing all local (no-`source`) package entries from the lock file.
 //!    External packages always carry a `source` field (e.g.
@@ -23,7 +25,7 @@
 //!    workspace-membership changes (adding/removing internal crates).
 //!
 //! The resulting skeleton is then serialised into `recipe.json`.  Because it
-//! no longer contains any workspace-internal information, the Docker layer
+//! no longer contains any path-dep information, the Docker layer
 //! produced by `cargo chef cook` from this recipe is only invalidated when an
 //! *external* dependency actually changes.
 
@@ -205,6 +207,42 @@ version = "0.0.1"
         assert!(
             !contents.contains("path ="),
             "path dep should be removed:\n{}",
+            contents
+        );
+        assert!(
+            contents.contains("anyhow"),
+            "external dep should be kept:\n{}",
+            contents
+        );
+    }
+
+    #[test]
+    fn strips_out_of_workspace_path_dep() {
+        // The implementation removes ANY dep with a `path` field, not just
+        // intra-workspace ones.  Verify an absolute or out-of-tree relative
+        // path dep is also removed.
+        let m = manifest(
+            r#"
+[package]
+name = "app"
+version = "0.1.0"
+
+[dependencies]
+anyhow = "1"
+
+[dependencies.external-local]
+path = "/opt/some-other-project"
+version = "0.1.0"
+"#,
+        );
+        let mut manifests = vec![m];
+        let mut lock: Option<String> = None;
+        strip_path_deps(&mut manifests, &mut lock);
+
+        let contents = &manifests[0].contents;
+        assert!(
+            !contents.contains("path ="),
+            "out-of-workspace path dep should be removed:\n{}",
             contents
         );
         assert!(

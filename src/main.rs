@@ -62,12 +62,16 @@ pub struct Prepare {
     #[arg(long)]
     bin: Option<String>,
 
-    /// Strip all intra-workspace path dependencies from the recipe.
+    /// Strip all `path = "…"` dependency entries from the recipe.
     ///
     /// The resulting recipe contains only external (crates.io / git) dependencies.
     /// A Docker layer built by `cargo chef cook` from this recipe is only invalidated
     /// when an external dependency actually changes — not when workspace-internal
     /// crates are added, removed, or restructured.
+    ///
+    /// Note: this removes every dependency entry that has a `path` field, which
+    /// includes both intra-workspace path deps and any other local path deps
+    /// (e.g. out-of-tree crates referenced by an absolute or relative path).
     ///
     /// Use this flag to build a stable "third-party dependencies" Docker layer:
     ///

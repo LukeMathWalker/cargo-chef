@@ -81,14 +81,19 @@ impl Skeleton {
         })
     }
 
-    /// Remove all intra-workspace `path = "…"` dependencies from every manifest and
+    /// Remove all `path = "…"` dependencies from every manifest and
     /// all local (no-`source`) entries from the lock file.
     ///
-    /// This produces a "third-party only" skeleton whose content is stable across any
-    /// pure workspace-internal change (adding a crate, splitting one, renaming a
-    /// binary target, etc.).  A Docker layer built by `cargo chef cook` from a recipe
-    /// serialised from this skeleton will only be invalidated when an external
-    /// (crates.io / git) dependency actually changes.
+    /// Any dependency entry that carries a `path` field is removed — this
+    /// includes both intra-workspace path deps and any other local path deps
+    /// (e.g. out-of-tree crates referenced by an absolute or relative path).
+    ///
+    /// This produces a "third-party only" skeleton whose content is stable
+    /// across any pure workspace-internal change (adding a crate, splitting
+    /// one, renaming a binary target, etc.).  A Docker layer built by
+    /// `cargo chef cook` from a recipe serialised from this skeleton will only
+    /// be invalidated when an external (crates.io / git) dependency actually
+    /// changes.
     ///
     /// See [`external_only`] for details.
     pub fn strip_path_deps(&mut self) {
