@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context};
 use chef::{
-    AllFeatures, CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, Recipe, TargetArgs,
+    AllFeatures, CommandArg, CookArgs, DefaultFeatures, OptimisationProfile, PrepareOptions,
+    Recipe, TargetArgs,
 };
 use clap::crate_version;
 use clap::Parser;
@@ -324,8 +325,14 @@ fn _main() -> Result<(), anyhow::Error> {
             bin,
             external_only,
         }) => {
-            let recipe = Recipe::prepare(current_directory, bin, external_only)
-                .context("Failed to compute recipe")?;
+            let recipe = Recipe::prepare(
+                current_directory,
+                PrepareOptions {
+                    member: bin,
+                    external_only,
+                },
+            )
+            .context("Failed to compute recipe")?;
             let serialized =
                 serde_json::to_string(&recipe).context("Failed to serialize recipe.")?;
             fs::write(recipe_path, serialized).context("Failed to save recipe to 'recipe.json'")?;

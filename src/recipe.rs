@@ -50,14 +50,24 @@ pub struct CookArgs {
     pub jobs: Option<u16>,
 }
 
+/// Options for [`Recipe::prepare`].
+///
+/// Using a struct instead of positional parameters allows new options to be
+/// added in the future without breaking call sites.
+#[derive(Debug, Default)]
+pub struct PrepareOptions {
+    /// Only build the recipe for the given workspace member binary.
+    pub member: Option<String>,
+    /// Strip all `path = "…"` dependency entries from the recipe.
+    ///
+    /// See [`Skeleton::strip_path_deps`] for the full description.
+    pub external_only: bool,
+}
+
 impl Recipe {
-    pub fn prepare(
-        base_path: PathBuf,
-        member: Option<String>,
-        external_only: bool,
-    ) -> Result<Self, anyhow::Error> {
-        let mut skeleton = Skeleton::derive(base_path, member)?;
-        if external_only {
+    pub fn prepare(base_path: PathBuf, options: PrepareOptions) -> Result<Self, anyhow::Error> {
+        let mut skeleton = Skeleton::derive(base_path, options.member)?;
+        if options.external_only {
             skeleton.strip_path_deps();
         }
         Ok(Recipe { skeleton })
