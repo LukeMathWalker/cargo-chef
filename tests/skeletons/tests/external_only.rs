@@ -275,6 +275,15 @@ version = "1"
     skeleton_b.strip_path_deps();
 
     // Assert: after stripping, both skeletons are identical (same manifests)
+    // Sort by relative_path first to guard against non-deterministic filesystem
+    // traversal order — the content comparison must not depend on iteration order.
+    skeleton_a
+        .manifests
+        .sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    skeleton_b
+        .manifests
+        .sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+
     assert_eq!(
         skeleton_a.manifests.len(),
         skeleton_b.manifests.len(),
