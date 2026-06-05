@@ -165,33 +165,45 @@ version = "0.1.0"
     let mut skeleton = Skeleton::derive(project.path(), None).unwrap();
     skeleton.strip_path_deps();
 
-    // Assert: local workspace packages must not appear in the lock file
+    // Assert: local workspace packages must not appear in the lock file.
+    // Parse the TOML and inspect package names directly to avoid false
+    // positives from substring matches (e.g. a dep name containing "app").
     let lock_file = skeleton
         .lock_file
         .as_deref()
         .expect("lock file should be present");
 
+    let lock_toml: toml::Value =
+        toml::from_str(lock_file).expect("stripped lock file should be valid TOML");
+    let package_names: Vec<&str> = lock_toml
+        .get("package")
+        .and_then(|p| p.as_array())
+        .expect("lock file should have a [[package]] array")
+        .iter()
+        .filter_map(|pkg| pkg.get("name").and_then(|n| n.as_str()))
+        .collect();
+
     assert!(
-        !lock_file.contains("\"app\""),
-        "local 'app' should be removed from lock:\n{}",
-        lock_file,
+        !package_names.contains(&"app"),
+        "local 'app' should be removed from lock, got: {:?}",
+        package_names,
     );
     assert!(
-        !lock_file.contains("\"model\""),
-        "local 'model' should be removed from lock:\n{}",
-        lock_file,
+        !package_names.contains(&"model"),
+        "local 'model' should be removed from lock, got: {:?}",
+        package_names,
     );
 
     // External packages must remain
     assert!(
-        lock_file.contains("anyhow"),
-        "anyhow should be kept in lock:\n{}",
-        lock_file,
+        package_names.contains(&"anyhow"),
+        "anyhow should be kept in lock, got: {:?}",
+        package_names,
     );
     assert!(
-        lock_file.contains("serde"),
-        "serde should be kept in lock:\n{}",
-        lock_file,
+        package_names.contains(&"serde"),
+        "serde should be kept in lock, got: {:?}",
+        package_names,
     );
 }
 
