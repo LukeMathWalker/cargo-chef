@@ -31,6 +31,8 @@
 
 use std::collections::HashSet;
 
+use anyhow::Context;
+
 use super::Manifest;
 
 const DEP_SECTIONS: &[&str] = &["dependencies", "dev-dependencies", "build-dependencies"];
@@ -47,7 +49,10 @@ const DEP_SECTIONS: &[&str] = &["dependencies", "dev-dependencies", "build-depen
 ///
 /// This ensures that after stripping, no manifest references a workspace dep
 /// that no longer exists in `[workspace.dependencies]`.
-pub(super) fn strip_path_deps(manifests: &mut [Manifest], lock_file: &mut Option<String>) {
+pub(super) fn strip_path_deps(
+    manifests: &mut [Manifest],
+    lock_file: &mut Option<String>,
+) -> anyhow::Result<()> {
     // Pass 1: collect names of workspace-inherited deps that are path deps.
     let workspace_path_dep_names: HashSet<String> = manifests
         .iter()
@@ -57,11 +62,19 @@ pub(super) fn strip_path_deps(manifests: &mut [Manifest], lock_file: &mut Option
     // Pass 2: strip from every manifest.
     for manifest in manifests.iter_mut() {
         manifest.contents =
-            strip_from_manifest_contents(&manifest.contents, &workspace_path_dep_names);
+            strip_from_manifest_contents(&manifest.contents, &workspace_path_dep_names)
+                .with_context(|| {
+                    format!(
+                        "failed to strip path deps from manifest {}",
+                        manifest.relative_path.display()
+                    )
+                })?;
     }
     if let Some(lock) = lock_file {
-        *lock = strip_local_packages_from_lock(lock);
+        *lock = strip_local_packages_from_lock(lock)
+            .context("failed to strip local packages from lock file")?;
     }
+    Ok(())
 }
 
 /// Collect the names of all `[workspace.dependencies]` entries that have a
@@ -102,9 +115,9 @@ fn collect_workspace_path_dep_names(contents: &str) -> HashSet<String> {
 fn strip_from_manifest_contents(
     contents: &str,
     workspace_path_dep_names: &HashSet<String>,
-) -> String {
+) -> anyhow::Result<String> {
     let mut value: toml::Value = toml::from_str(contents)
-        .expect("cargo-chef produced invalid TOML for a manifest — this is a bug");
+        .context("failed to parse manifest TOML during path-dep stripping")?;
 
     // Top-level [dependencies], [dev-dependencies], [build-dependencies]
     strip_path_deps_from_value(&mut value, workspace_path_dep_names);
@@ -124,7 +137,7 @@ fn strip_from_manifest_contents(
     }
 
     toml::to_string(&value)
-        .expect("failed to re-serialise manifest TOML after stripping path deps — this is a bug")
+        .context("failed to re-serialise manifest TOML after stripping path deps")
 }
 
 /// Remove every dependency entry that has a `path` field, or whose name
@@ -158,16 +171,15 @@ fn strip_path_deps_from_value(value: &mut toml::Value, workspace_path_dep_names:
 
 /// Remove all local (no-`source`) `[[package]]` entries from a serialised
 /// Cargo.lock TOML string.
-fn strip_local_packages_from_lock(lock_str: &str) -> String {
+fn strip_local_packages_from_lock(lock_str: &str) -> anyhow::Result<String> {
     let mut lock: toml::Value = toml::from_str(lock_str)
-        .expect("cargo-chef produced invalid TOML for the lock file — this is a bug");
+        .context("failed to parse lock file TOML during path-dep stripping")?;
     if let Some(packages) = lock.get_mut("package").and_then(|p| p.as_array_mut()) {
         // Keep only packages that have a `source` field — those are external.
         packages.retain(|pkg| pkg.get("source").is_some());
     }
-    toml::to_string(&lock).expect(
-        "failed to re-serialise lock file TOML after stripping local packages — this is a bug",
-    )
+    toml::to_string(&lock)
+        .context("failed to re-serialise lock file TOML after stripping local packages")
 }
 
 #[cfg(test)]
@@ -201,7 +213,7 @@ version = "0.0.1"
         );
         let mut manifests = vec![m];
         let mut lock: Option<String> = None;
-        strip_path_deps(&mut manifests, &mut lock);
+        strip_path_deps(&mut manifests, &mut lock).expect("strip_path_deps failed");
 
         let contents = &manifests[0].contents;
         assert!(
@@ -237,7 +249,7 @@ version = "0.1.0"
         );
         let mut manifests = vec![m];
         let mut lock: Option<String> = None;
-        strip_path_deps(&mut manifests, &mut lock);
+        strip_path_deps(&mut manifests, &mut lock).expect("strip_path_deps failed");
 
         let contents = &manifests[0].contents;
         assert!(
@@ -263,7 +275,8 @@ version = "0.1.0"
 version = "1"
 features = ["derive"]
 "#;
-        let result = strip_from_manifest_contents(original, &HashSet::new());
+        let result =
+            strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
         assert!(
             result.contains("serde"),
             "serde should be kept:\n{}",
@@ -289,7 +302,8 @@ serde = "1"
 path = "./internal"
 version = "0.0.1"
 "#;
-        let result = strip_from_manifest_contents(original, &HashSet::new());
+        let result =
+            strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
         assert!(result.contains("serde"), "serde kept:\n{}", result);
         assert!(!result.contains("path ="), "path dep removed:\n{}", result);
     }
@@ -308,7 +322,8 @@ version = "0.0.1"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 "#;
-        let result = strip_from_manifest_contents(original, &HashSet::new());
+        let result =
+            strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
         assert!(result.contains("libc"), "libc kept:\n{}", result);
         assert!(!result.contains("path ="), "path dep removed:\n{}", result);
     }
@@ -346,7 +361,8 @@ internal = { workspace = true }
             "should detect 'internal' as workspace path dep"
         );
 
-        let stripped_member = strip_from_manifest_contents(member, &ws_path_names);
+        let stripped_member =
+            strip_from_manifest_contents(member, &ws_path_names).expect("strip failed");
         assert!(
             stripped_member.contains("serde"),
             "serde (external) should be kept:\n{}",
@@ -380,7 +396,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "def"
 "#;
-        let result = strip_local_packages_from_lock(lock);
+        let result = strip_local_packages_from_lock(lock).expect("strip lock failed");
         assert!(result.contains("anyhow"), "anyhow kept:\n{}", result);
         assert!(result.contains("serde"), "serde kept:\n{}", result);
         assert!(
@@ -410,7 +426,7 @@ path = "../util"
         );
         let mut manifests = vec![m];
         let mut lock: Option<String> = None;
-        strip_path_deps(&mut manifests, &mut lock);
+        strip_path_deps(&mut manifests, &mut lock).expect("strip_path_deps failed");
 
         let contents = &manifests[0].contents;
         // No path dep entries must remain.
@@ -421,5 +437,47 @@ path = "../util"
         );
         // The result must still be valid TOML.
         toml::from_str::<toml::Value>(contents).expect("stripped manifest must be valid TOML");
+    }
+
+    #[test]
+    fn returns_error_on_invalid_manifest_toml() {
+        // strip_from_manifest_contents should return Err, not panic, when fed
+        // malformed TOML.
+        let invalid = "this is [ not valid toml !!!";
+        let result = strip_from_manifest_contents(invalid, &HashSet::new());
+        assert!(
+            result.is_err(),
+            "expected Err for invalid manifest TOML, got Ok"
+        );
+    }
+
+    #[test]
+    fn returns_error_on_invalid_lock_file_toml() {
+        // strip_local_packages_from_lock should return Err, not panic, when fed
+        // malformed TOML.
+        let invalid = "this is [ not valid toml !!!";
+        let result = strip_local_packages_from_lock(invalid);
+        assert!(
+            result.is_err(),
+            "expected Err for invalid lock file TOML, got Ok"
+        );
+    }
+
+    #[test]
+    fn strip_path_deps_propagates_manifest_parse_error() {
+        // strip_path_deps should propagate errors from invalid manifests rather
+        // than panicking.
+        let bad = Manifest {
+            relative_path: std::path::PathBuf::from("bad/Cargo.toml"),
+            contents: "this is [ not valid toml !!!".to_string(),
+            targets: vec![],
+        };
+        let mut manifests = vec![bad];
+        let mut lock: Option<String> = None;
+        let result = strip_path_deps(&mut manifests, &mut lock);
+        assert!(
+            result.is_err(),
+            "expected Err when manifest has invalid TOML, got Ok"
+        );
     }
 }

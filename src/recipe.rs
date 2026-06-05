@@ -68,7 +68,9 @@ impl Recipe {
     pub fn prepare(base_path: PathBuf, options: PrepareOptions) -> Result<Self, anyhow::Error> {
         let mut skeleton = Skeleton::derive(base_path, options.member)?;
         if options.external_only {
-            skeleton.strip_path_deps();
+            skeleton
+                .strip_path_deps()
+                .context("Failed to strip path dependencies")?;
         }
         Ok(Recipe { skeleton })
     }

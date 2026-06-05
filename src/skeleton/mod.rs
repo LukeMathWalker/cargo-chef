@@ -94,10 +94,8 @@ impl Skeleton {
     /// `cargo chef cook` from a recipe serialised from this skeleton will only
     /// be invalidated when an external (crates.io / git) dependency actually
     /// changes.
-    ///
-    /// See [`external_only`] for details.
-    pub fn strip_path_deps(&mut self) {
-        external_only::strip_path_deps(&mut self.manifests, &mut self.lock_file);
+    pub fn strip_path_deps(&mut self) -> anyhow::Result<()> {
+        external_only::strip_path_deps(&mut self.manifests, &mut self.lock_file)
     }
 
     /// Given the manifests in the current skeleton, create the minimum set of files required to

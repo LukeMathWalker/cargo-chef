@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `--external-only` flag to `cargo chef prepare` to strip intra-workspace `path = "..."` dependencies from the recipe, enabling a stable Docker cache layer for third-party dependencies that is not invalidated by workspace-internal changes ([#359](https://github.com/LukeMathWalker/cargo-chef/issues/359))
+- Add `--external-only` flag to `cargo chef prepare` to strip all `path = "..."` dependency entries from the recipe (including intra-workspace path deps and any other local path deps), enabling a stable Docker cache layer for third-party dependencies that is not invalidated by workspace-internal changes ([#359](https://github.com/LukeMathWalker/cargo-chef/issues/359))
 
 ## [0.1.77](https://github.com/LukeMathWalker/cargo-chef/compare/v0.1.76...v0.1.77) - 2026-03-03
 
