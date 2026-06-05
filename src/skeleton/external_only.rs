@@ -275,8 +275,7 @@ version = "0.1.0"
 version = "1"
 features = ["derive"]
 "#;
-        let result =
-            strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
+        let result = strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
         assert!(
             result.contains("serde"),
             "serde should be kept:\n{}",
@@ -302,8 +301,7 @@ serde = "1"
 path = "./internal"
 version = "0.0.1"
 "#;
-        let result =
-            strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
+        let result = strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
         assert!(result.contains("serde"), "serde kept:\n{}", result);
         assert!(!result.contains("path ="), "path dep removed:\n{}", result);
     }
@@ -322,8 +320,7 @@ version = "0.0.1"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 "#;
-        let result =
-            strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
+        let result = strip_from_manifest_contents(original, &HashSet::new()).expect("strip failed");
         assert!(result.contains("libc"), "libc kept:\n{}", result);
         assert!(!result.contains("path ="), "path dep removed:\n{}", result);
     }
