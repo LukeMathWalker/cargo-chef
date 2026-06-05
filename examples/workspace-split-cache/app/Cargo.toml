@@ -1,0 +1,14 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "app"
+path = "src/main.rs"
+
+[dependencies]
+# Intra-workspace path dependency
+logic = { path = "../logic" }
+# External (third-party) dependency
+anyhow = "1"

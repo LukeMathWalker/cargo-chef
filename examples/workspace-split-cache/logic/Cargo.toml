@@ -1,0 +1,15 @@
+[package]
+name = "logic"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "logic"
+path = "src/lib.rs"
+
+[dependencies]
+# Intra-workspace path dependency
+model = { path = "../model" }
+# External (third-party) dependencies
+serde_json = "1"
+anyhow = "1"
