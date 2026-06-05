@@ -1,0 +1,67 @@
+# syntax=docker/dockerfile:1
+#
+# Example: Split Docker cache layers using the native --external-only flag.
+#
+# This Dockerfile demonstrates the same two-layer cook pattern as Dockerfile
+# but uses the native `cargo chef prepare --external-only` flag instead of the
+# Python post-processing script.
+#
+# Requires a locally built cargo-chef binary that includes the --external-only
+# flag (not yet released upstream — built from this repo).
+#
+# Build (two steps):
+#
+#   Step 1 — build cargo-chef from the repo root and tag it:
+#     docker build -t cargo-chef-local ../../
+#
+#   Step 2 — build this example passing the local image as a named build context:
+#     docker build \
+#       --build-context cargo-chef-local=docker-image://cargo-chef-local:latest \
+#       -f Dockerfile.native \
+#       -t workspace-split-cache-native \
+#       .
+#
+# Once --external-only is released on crates.io the COPY --from=cargo-chef-local
+# line below can be replaced with:
+#   RUN cargo install --locked cargo-chef
+
+FROM rust:1 AS chef
+WORKDIR /app
+# Install the locally patched cargo-chef binary injected via --build-context.
+# See the build instructions at the top of this file.
+COPY --from=cargo-chef-local /usr/local/bin/cargo-chef /usr/local/bin/cargo-chef
+
+# ── planner ───────────────────────────────────────────────────────────────────
+FROM chef AS planner
+COPY . .
+
+# Standard full recipe (external deps + workspace-internal structure).
+RUN cargo chef prepare --recipe-path recipe.json
+
+# Third-party-only recipe: path deps and local lock entries stripped natively.
+# This is the clean version — no Python script needed.
+RUN cargo chef prepare --external-only --recipe-path recipe-thirdparty.json
+
+# ── cook_thirdparty ───────────────────────────────────────────────────────────
+# Compiles ONLY external (crates.io) dependencies.
+# Invalidated only when an external dep actually changes.
+FROM chef AS cook_thirdparty
+COPY --from=planner /app/recipe-thirdparty.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# ── cook ──────────────────────────────────────────────────────────────────────
+# Inherits third-party artifacts; recompiles only workspace stubs.
+FROM cook_thirdparty AS cook
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# ── builder ───────────────────────────────────────────────────────────────────
+FROM cook AS builder
+COPY . .
+RUN cargo build --release --bin app
+
+# ── runtime ───────────────────────────────────────────────────────────────────
+FROM debian:bookworm-slim AS runtime
+WORKDIR /app
+COPY --from=builder /app/target/release/app /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/app"]

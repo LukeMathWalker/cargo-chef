@@ -1,0 +1,12 @@
+[package]
+name = "model"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "model"
+path = "src/lib.rs"
+
+[dependencies]
+# External (third-party) dependencies only — no intra-workspace path deps.
+serde = { version = "1", features = ["derive"] }

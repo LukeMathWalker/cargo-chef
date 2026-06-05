@@ -1,3 +1,4 @@
+mod external_only;
 mod read;
 mod target;
 mod version_masking;
@@ -78,6 +79,23 @@ impl Skeleton {
             lock_file,
             rust_toolchain_file,
         })
+    }
+
+    /// Remove all `path = "…"` dependencies from every manifest and
+    /// all local (no-`source`) entries from the lock file.
+    ///
+    /// Any dependency entry that carries a `path` field is removed — this
+    /// includes both intra-workspace path deps and any other local path deps
+    /// (e.g. out-of-tree crates referenced by an absolute or relative path).
+    ///
+    /// This produces a "third-party only" skeleton whose content is stable
+    /// across any pure workspace-internal change (adding a crate, splitting
+    /// one, renaming a binary target, etc.).  A Docker layer built by
+    /// `cargo chef cook` from a recipe serialised from this skeleton will only
+    /// be invalidated when an external (crates.io / git) dependency actually
+    /// changes.
+    pub fn strip_path_deps(&mut self) -> anyhow::Result<()> {
+        external_only::strip_path_deps(&mut self.manifests, &mut self.lock_file)
     }
 
     /// Given the manifests in the current skeleton, create the minimum set of files required to

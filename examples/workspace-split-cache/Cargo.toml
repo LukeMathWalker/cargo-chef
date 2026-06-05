@@ -1,0 +1,3 @@
+[workspace]
+members = ["app", "logic", "model"]
+resolver = "2"

@@ -8,6 +8,7 @@ use expect_test::expect;
 use predicates::prelude::*;
 
 mod core;
+mod external_only;
 mod masking;
 mod toolchain;
 mod workspace;
