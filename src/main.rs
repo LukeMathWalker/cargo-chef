@@ -60,6 +60,22 @@ pub struct Prepare {
     /// that are not necessary to successfully compile the specific binary.
     #[arg(long)]
     bin: Option<String>,
+
+    /// Strip all intra-workspace path dependencies from the recipe.
+    ///
+    /// The resulting recipe contains only external (crates.io / git) dependencies.
+    /// A Docker layer built by `cargo chef cook` from this recipe is only invalidated
+    /// when an external dependency actually changes — not when workspace-internal
+    /// crates are added, removed, or restructured.
+    ///
+    /// Use this flag to build a stable "third-party dependencies" Docker layer:
+    ///
+    ///   cargo chef prepare --external-only --recipe-path recipe-thirdparty.json
+    ///   cargo chef cook   --release       --recipe-path recipe-thirdparty.json
+    ///
+    /// Then follow with the standard prepare + cook cycle on top of that layer.
+    #[arg(long)]
+    external_only: bool,
 }
 
 #[derive(Parser)]
@@ -303,9 +319,13 @@ fn _main() -> Result<(), anyhow::Error> {
                 })
                 .context("Failed to cook recipe.")?;
         }
-        Command::Prepare(Prepare { recipe_path, bin }) => {
-            let recipe =
-                Recipe::prepare(current_directory, bin).context("Failed to compute recipe")?;
+        Command::Prepare(Prepare {
+            recipe_path,
+            bin,
+            external_only,
+        }) => {
+            let recipe = Recipe::prepare(current_directory, bin, external_only)
+                .context("Failed to compute recipe")?;
             let serialized =
                 serde_json::to_string(&recipe).context("Failed to serialize recipe.")?;
             fs::write(recipe_path, serialized).context("Failed to save recipe to 'recipe.json'")?;

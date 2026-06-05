@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `--external-only` flag to `cargo chef prepare` to strip intra-workspace `path = "..."` dependencies from the recipe, enabling a stable Docker cache layer for third-party dependencies that is not invalidated by workspace-internal changes ([#359](https://github.com/LukeMathWalker/cargo-chef/issues/359))
+
 ## [0.1.77](https://github.com/LukeMathWalker/cargo-chef/compare/v0.1.76...v0.1.77) - 2026-03-03
 
 ### Fixed
@@ -18,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Minimize generated recipe to increase cache hit ratio when `cargo chef prepare` is invoked with a `--bin` option (by [@preiter93](https://github.com/preiter93))
-- Publish a prebuilt `cargo-chef` Docker image for every upstream Rust tag. 
+- Publish a prebuilt `cargo-chef` Docker image for every upstream Rust tag.
 - Broaden the set of supported architectures for Docker images to include `i386` and `arm32v7`
 
 ### Other

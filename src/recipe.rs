@@ -51,8 +51,15 @@ pub struct CookArgs {
 }
 
 impl Recipe {
-    pub fn prepare(base_path: PathBuf, member: Option<String>) -> Result<Self, anyhow::Error> {
-        let skeleton = Skeleton::derive(base_path, member)?;
+    pub fn prepare(
+        base_path: PathBuf,
+        member: Option<String>,
+        external_only: bool,
+    ) -> Result<Self, anyhow::Error> {
+        let mut skeleton = Skeleton::derive(base_path, member)?;
+        if external_only {
+            skeleton.strip_path_deps();
+        }
         Ok(Recipe { skeleton })
     }
 
