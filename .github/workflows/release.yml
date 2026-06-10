@@ -78,8 +78,14 @@ jobs:
       # (PRs run on the *source* but secrets are usually on the *target* -- that's *good*
       # but also really annoying to build CI around when it needs secrets to work right.)
       - id: plan
+        env:
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
         run: |
-          dist ${{ (!github.event.pull_request && format('host --steps=create --tag={0}', github.ref_name)) || 'plan' }} --output-format=json > plan-dist-manifest.json
+          if [ "$IS_PULL_REQUEST" = "true" ]; then
+            dist plan --output-format=json > plan-dist-manifest.json
+          else
+            dist host --steps=create --tag="$GITHUB_REF_NAME" --output-format=json > plan-dist-manifest.json
+          fi
           echo "dist ran successfully"
           cat plan-dist-manifest.json
           echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
@@ -110,7 +116,7 @@ jobs:
       # - N "local" tasks that build each platform's binaries and platform-specific installers
       matrix: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix }}
     runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container && matrix.container.image || null }}
+    container: ${{ matrix.container && matrix.container.image || null }} # zizmor: ignore[unpinned-images] dynamic matrix from cargo-dist
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       BUILD_MANIFEST_NAME: target/distrib/${{ join(matrix.targets, '-') }}-dist-manifest.json
@@ -130,7 +136,11 @@ jobs:
             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           fi
       - name: Install dist
-        run: ${{ matrix.install_dist.run }}
+        shell: bash
+        env:
+          MATRIX_INSTALL_DIST_RUN: ${{ matrix.install_dist.run }}
+        run: |
+          eval "$MATRIX_INSTALL_DIST_RUN"
       # Get the dist-manifest
       - name: Fetch local artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -139,12 +149,18 @@ jobs:
           path: target/distrib/
           merge-multiple: true
       - name: Install dependencies
+        shell: bash
+        env:
+          MATRIX_PACKAGES_INSTALL: ${{ matrix.packages_install }}
         run: |
-          ${{ matrix.packages_install }}
+          eval "$MATRIX_PACKAGES_INSTALL"
       - name: Build artifacts
+        env:
+          NEEDS_PLAN_OUTPUTS_TAG_FLAG: ${{ needs.plan.outputs.tag-flag }}
+          MATRIX_DIST_ARGS: ${{ matrix.dist_args }}
         run: |
           # Actually do builds and make zips and whatnot
-          dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
+          dist build ${NEEDS_PLAN_OUTPUTS_TAG_FLAG} --print=linkage --output-format=json ${MATRIX_DIST_ARGS} > dist-manifest.json
           echo "dist ran successfully"
       - id: cargo-dist
         name: Post-build
