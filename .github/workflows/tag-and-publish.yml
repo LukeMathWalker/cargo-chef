@@ -17,15 +17,15 @@ jobs:
     steps:
       - &checkout
         name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           fetch-depth: 0
           persist-credentials: false
       - &install-rust
         name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
       - name: Run release-plz
-        uses: release-plz/action@v0.5
+        uses: release-plz/action@4a08fbe6cb1bb0e4d066058e6efcf50f352db236 # v0.5.129
         with:
           command: release
         env:
@@ -45,7 +45,7 @@ jobs:
       - *checkout
       - *install-rust
       - name: Run release-plz
-        uses: release-plz/action@v0.5
+        uses: release-plz/action@4a08fbe6cb1bb0e4d066058e6efcf50f352db236 # v0.5.129
         with:
           command: release-pr
         env:

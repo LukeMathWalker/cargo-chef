@@ -25,11 +25,13 @@ jobs:
       group_matrix: ${{ steps.collect.outputs.group_matrix }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -147,20 +149,22 @@ jobs:
         group_entry: ${{fromJSON(needs.resolve_inputs.outputs.group_matrix)}}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Determine if canonical image exists
         id: canonical_status
         run: |
-          CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
+          CHEF_PACKAGE_VERSION=${NEEDS_RESOLVE_INPUTS_OUTPUTS_PACKAGE_VERSION}
           GROUP_KEY='${{ matrix.group_entry.group_key }}'
           GROUP_KEY_TAG=$(printf '%s' "$GROUP_KEY" | shasum -a 256 | cut -c1-16)
           CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$GROUP_KEY_TAG
@@ -172,10 +176,12 @@ jobs:
             echo "Canonical image does not exist for group $GROUP_KEY_TAG. Building."
             echo "result=true" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          NEEDS_RESOLVE_INPUTS_OUTPUTS_PACKAGE_VERSION: ${{ needs.resolve_inputs.outputs.package_version }}
       - name: Build and push canonical image
         if: ${{ steps.canonical_status.outputs.result == 'true' }}
         run: |
-          CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
+          CHEF_PACKAGE_VERSION=${NEEDS_RESOLVE_INPUTS_OUTPUTS_PACKAGE_VERSION}
           RUST_IMAGE_TAG=${{ matrix.group_entry.representative_rust_tag }}
           GROUP_KEY='${{ matrix.group_entry.group_key }}'
           GROUP_KEY_TAG=$(printf '%s' "$GROUP_KEY" | shasum -a 256 | cut -c1-16)
@@ -194,6 +200,8 @@ jobs:
             --platform "$PLATFORMS" \
             --push \
             ./docker
+        env:
+          NEEDS_RESOLVE_INPUTS_OUTPUTS_PACKAGE_VERSION: ${{ needs.resolve_inputs.outputs.package_version }}
   publish_group_aliases:
     name: Publish group aliases
     needs: [resolve_inputs, build_unique_images]
@@ -205,9 +213,9 @@ jobs:
         group_entry: ${{fromJSON(needs.resolve_inputs.outputs.group_matrix)}}
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -215,7 +223,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          CHEF_PACKAGE_VERSION=${{ needs.resolve_inputs.outputs.package_version }}
+          CHEF_PACKAGE_VERSION=${NEEDS_RESOLVE_INPUTS_OUTPUTS_PACKAGE_VERSION}
           GROUP_KEY='${{ matrix.group_entry.group_key }}'
           GROUP_KEY_TAG=$(printf '%s' "$GROUP_KEY" | shasum -a 256 | cut -c1-16)
           CANONICAL_IMAGE=$DOCKER_REPO:$CHEF_PACKAGE_VERSION-base-$GROUP_KEY_TAG
@@ -244,3 +252,5 @@ jobs:
           fi
 
           docker buildx imagetools create "${tag_args[@]}" "$CANONICAL_IMAGE"
+        env:
+          NEEDS_RESOLVE_INPUTS_OUTPUTS_PACKAGE_VERSION: ${{ needs.resolve_inputs.outputs.package_version }}

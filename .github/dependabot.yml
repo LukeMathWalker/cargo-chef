@@ -5,7 +5,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-patch"
+    groups:
+      github-actions:
+        # Group all GitHub Actions updates together
+        patterns:
+          - "*"
+    cooldown:
+      default-days: 7
