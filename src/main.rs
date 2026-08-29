@@ -121,6 +121,9 @@ pub struct Cook {
     /// Build all members in the workspace.
     #[arg(long)]
     workspace: bool,
+    /// Exclude packages from the build
+    #[arg(long, requires = "workspace")]
+    exclude: Option<Vec<String>>,
     /// Build offline.
     #[arg(long)]
     offline: bool,
@@ -188,6 +191,7 @@ fn _main() -> Result<(), anyhow::Error> {
             manifest_path,
             package,
             workspace,
+            exclude,
             offline,
             frozen,
             locked,
@@ -290,6 +294,7 @@ fn _main() -> Result<(), anyhow::Error> {
                     manifest_path,
                     package,
                     workspace,
+                    exclude,
                     offline,
                     timings,
                     no_std,
