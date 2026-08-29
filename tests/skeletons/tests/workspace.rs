@@ -77,7 +77,7 @@ description = "sample package representing all of rocket's dependencies"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
 
     // Assert
     assert_eq!(1, skeleton.manifests.len());
@@ -118,7 +118,7 @@ edition = "2018"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), "backend".to_string().into()).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &["backend".to_string()]).unwrap();
 
     // Assert:
     // - that "ci" is *still* in the list of `skeleton`'s manifests
@@ -198,7 +198,7 @@ anyhow = { workspace = true }
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -320,7 +320,7 @@ version = "0.0.1"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
 
     // Assert
     assert_eq!(skeleton.manifests.len(), 3);
@@ -358,7 +358,7 @@ edition = "2021"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), Some("bin_a".to_string())).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &["bin_a".to_string()]).unwrap();
 
     // Assert — only root workspace manifest + bin_a
     assert_eq!(skeleton.manifests.len(), 2);
@@ -415,7 +415,7 @@ edition = "2021"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), Some("bin_a".to_string())).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &["bin_a".into()]).unwrap();
 
     // Assert — root workspace + bin_a + lib_a (bin_b excluded)
     assert_eq!(skeleton.manifests.len(), 3);
@@ -469,7 +469,7 @@ my_ryu = { workspace = true }
         )
         .build();
 
-    let skeleton = Skeleton::derive(project.path(), Some("bin_a".to_string())).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &["bin_a".into()]).unwrap();
 
     // Root manifest should keep my_itoa but not my_ryu
     let root = skeleton
@@ -516,7 +516,7 @@ version = "0.2.1"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
 
     check(
         &skeleton.manifests[1].contents,

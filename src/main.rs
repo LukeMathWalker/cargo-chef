@@ -59,7 +59,7 @@ pub struct Prepare {
     /// When --bin is specified, `cargo-chef` will ignore all members of the workspace
     /// that are not necessary to successfully compile the specific binary.
     #[arg(long)]
-    bin: Option<String>,
+    bin: Vec<String>,
 }
 
 #[derive(Parser)]
@@ -305,7 +305,7 @@ fn _main() -> Result<(), anyhow::Error> {
         }
         Command::Prepare(Prepare { recipe_path, bin }) => {
             let recipe =
-                Recipe::prepare(current_directory, bin).context("Failed to compute recipe")?;
+                Recipe::prepare(current_directory, &bin).context("Failed to compute recipe")?;
             let serialized =
                 serde_json::to_string(&recipe).context("Failed to serialize recipe.")?;
             fs::write(recipe_path, serialized).context("Failed to save recipe to 'recipe.json'")?;

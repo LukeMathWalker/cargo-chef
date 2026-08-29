@@ -19,7 +19,7 @@ edition = "2018"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -57,7 +57,7 @@ edition = "2018"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -100,7 +100,7 @@ version = "1.2.3"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -203,7 +203,7 @@ dependencies = [
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -346,7 +346,7 @@ crate-type = ["cdylib"]
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -479,7 +479,7 @@ edition = "2021"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)

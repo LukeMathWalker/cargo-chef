@@ -44,22 +44,19 @@ pub(in crate::skeleton) struct ParsedManifest {
 
 impl Skeleton {
     /// Find all Cargo.toml files in `base_path` by traversing sub-directories recursively.
-    pub fn derive<P: AsRef<Path>>(
-        base_path: P,
-        member: Option<String>,
-    ) -> Result<Self, anyhow::Error> {
+    pub fn derive<P: AsRef<Path>>(base_path: P, members: &[String]) -> Result<Self, anyhow::Error> {
         // Use `--no-deps` to skip dependency resolution when we don't need the full graph
         // (i.e. no `--bin` filtering). We still need full resolution when there's no existing
         // Cargo.lock, since `cargo metadata` generates it as a side effect.
-        let no_deps = member.is_none() && base_path.as_ref().join("Cargo.lock").exists();
+        let no_deps = members.is_empty() && base_path.as_ref().join("Cargo.lock").exists();
         let graph = extract_package_graph(base_path.as_ref(), no_deps)?;
 
         // Read relevant files from the filesystem
         let config_file = read::config(&base_path)?;
         let mut manifests = read::manifests(&base_path, &graph)?;
         let mut lock_file = read::lockfile(&base_path)?;
-        if let Some(member) = &member {
-            filter_to_member_closure(&mut manifests, &mut lock_file, &graph, member)?;
+        if !members.is_empty() {
+            filter_to_member_closure(&mut manifests, &mut lock_file, &graph, members)?;
         }
         let rust_toolchain_file = read::rust_toolchain(&base_path)?;
 
@@ -337,27 +334,34 @@ fn filter_to_member_closure(
     manifests: &mut Vec<ParsedManifest>,
     lock_file: &mut Option<toml::Value>,
     graph: &PackageGraph,
-    member: &str,
+    members: &[String],
 ) -> Result<(), anyhow::Error> {
     let ws = graph.workspace();
-    // `member` may be a package name or a binary target name (from --bin).
-    // Try package name first, then search for a binary target.
-    let pkg = match ws.member_by_name(member) {
-        Ok(pkg) => pkg,
-        Err(_) => ws
-            .iter()
-            .find(|pkg| {
-                pkg.build_targets().any(|t| {
-                    matches!(t.id(), guppy::graph::BuildTargetId::Binary(name) if name == member)
+
+    let mut pkgs = Vec::with_capacity(members.len());
+
+    for member in members {
+        // `member` may be a package name or a binary target name (from --bin).
+        // Try package name first, then search for a binary target.
+        let pkg = match ws.member_by_name(member) {
+            Ok(pkg) => pkg,
+            Err(_) => ws
+                .iter()
+                .find(|pkg| {
+                    pkg.build_targets().any(|t| {
+                        matches!(t.id(), guppy::graph::BuildTargetId::Binary(name) if name == member)
+                    })
                 })
-            })
-            .ok_or_else(|| {
-                anyhow::anyhow!("No workspace package or binary target named '{member}'")
-            })?,
-    };
+                .ok_or_else(|| {
+                    anyhow::anyhow!("No workspace package or binary target named '{member}'")
+                })?,
+        };
+
+        pkgs.push(pkg.id().clone());
+    }
 
     // Get transitive closure of all dependencies
-    let resolved = graph.query_forward(std::iter::once(pkg.id()))?.resolve();
+    let resolved = graph.query_forward(pkgs.iter())?.resolve();
 
     // Collect workspace member names in the closure
     let closure_members: HashSet<String> = ws

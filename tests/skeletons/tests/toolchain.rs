@@ -21,7 +21,7 @@ edition = "2021"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -68,7 +68,7 @@ channel = "1.75.0"
         .build();
 
     // Act
-    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+    let skeleton = Skeleton::derive(project.path(), &[]).unwrap();
     let cook_directory = TempDir::new().unwrap();
     skeleton
         .build_minimum_project(cook_directory.path(), false)
@@ -202,7 +202,7 @@ uuid = { version = "=0.8.0", features = ["v4"] }
 
     // Act
     let path = project.path();
-    let all = Skeleton::derive(&path, None).unwrap();
+    let all = Skeleton::derive(&path, &[]).unwrap();
     assert_eq!(
         manifest_content_dirs(&all),
         vec![
@@ -214,37 +214,37 @@ uuid = { version = "=0.8.0", features = ["v4"] }
         ]
     );
 
-    let project_a = Skeleton::derive(&path, Some("project_a".into())).unwrap();
+    let project_a = Skeleton::derive(&path, &["project_a".into()]).unwrap();
     assert_eq!(
         manifest_content_dirs(&project_a),
         vec!["crates/client/project_a"]
     );
 
-    let project_b = Skeleton::derive(&path, Some("project_b".into())).unwrap();
+    let project_b = Skeleton::derive(&path, &["project_b".into()]).unwrap();
     assert_eq!(
         manifest_content_dirs(&project_b),
         vec!["crates/client/project_b"]
     );
 
-    let project_c = Skeleton::derive(&path, Some("project_c".into())).unwrap();
+    let project_c = Skeleton::derive(&path, &["project_c".into()]).unwrap();
     assert_eq!(
         manifest_content_dirs(&project_c),
         vec!["crates/server/project_c"]
     );
 
-    let project_d = Skeleton::derive(&path, Some("project_d".into())).unwrap();
+    let project_d = Skeleton::derive(&path, &["project_d".into()]).unwrap();
     assert_eq!(
         manifest_content_dirs(&project_d),
         vec!["crates/server/project_d"]
     );
 
-    let project_e = Skeleton::derive(&path, Some("project_e".into())).unwrap();
+    let project_e = Skeleton::derive(&path, &["project_e".into()]).unwrap();
     assert_eq!(
         manifest_content_dirs(&project_e),
         vec!["vendored/project_e"]
     );
 
-    let project_f = Skeleton::derive(&path, Some("project_f".into())).unwrap();
+    let project_f = Skeleton::derive(&path, &["project_f".into()]).unwrap();
     assert_eq!(manifest_content_dirs(&project_f), vec!["project_f"]);
 
     // TODO: If multiple binaries are valid in `cargo chef prepare`, then testing
