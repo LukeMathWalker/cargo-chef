@@ -64,12 +64,14 @@ impl Recipe {
             return Ok(());
         }
         build_dependencies(&args);
+        let zigbuild = matches!(&args.command, CommandArg::Zigbuild);
         self.skeleton
-            .remove_compiled_dummies(
+            .remove_compiled_dummies_for_command(
                 current_directory,
                 args.profile,
                 args.target,
                 args.target_dir,
+                zigbuild,
             )
             .context("Failed to clean up dummy compilation artifacts.")?;
         Ok(())

@@ -216,6 +216,17 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
         target: Option<Vec<String>>,
         target_dir: Option<PathBuf>,
     ) -> Result<(), anyhow::Error> {
+        self.remove_compiled_dummies_for_command(base_path, profile, target, target_dir, false)
+    }
+
+    pub(crate) fn remove_compiled_dummies_for_command<P: AsRef<Path>>(
+        &self,
+        base_path: P,
+        profile: OptimisationProfile,
+        target: Option<Vec<String>>,
+        target_dir: Option<PathBuf>,
+        zigbuild: bool,
+    ) -> Result<(), anyhow::Error> {
         let target_dir = match target_dir {
             None => base_path.as_ref().join("target"),
             Some(target_dir) => target_dir,
@@ -239,7 +250,7 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
             .map_or(vec![target_dir.clone()], |targets| {
                 targets
                     .iter()
-                    .map(|target| target_dir.join(target_str(target)))
+                    .map(|target| target_dir.join(target_str(target, zigbuild)))
                     .collect()
             })
             .iter()
@@ -297,8 +308,19 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 /// (Part of the unstable cargo feature 'build-std'; c.f. https://doc.rust-lang.org/rustc/targets/custom.html )
 /// the `--target` flag refers to a `.json` file in the current directory.
 /// In this case, the actual name of the target is the value of `--target` without the `.json` suffix.
-fn target_str(target: &str) -> &str {
-    target.trim_end_matches(".json")
+fn target_str(target: &str, zigbuild: bool) -> &str {
+    if target.ends_with(".json") {
+        target.trim_end_matches(".json")
+    } else {
+        if zigbuild {
+            // cargo-zigbuild accepts a libc version after the target triple, but strips it
+            // before invoking Cargo. Strip it as well so cleanup can find the correct target
+            // directory.
+            target.split_once('.').map_or(target, |(target, _)| target)
+        } else {
+            target
+        }
+    }
 }
 
 fn serialize_manifests(manifests: Vec<ParsedManifest>) -> Result<Vec<Manifest>, anyhow::Error> {
@@ -496,5 +518,26 @@ fn filter_lockfile_packages(
                 _ => true,
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::target_str;
+
+    #[test]
+    fn target_directory_strips_glibc_version_for_zigbuild() {
+        assert_eq!(
+            target_str("x86_64-unknown-linux-gnu.2.27", true),
+            "x86_64-unknown-linux-gnu"
+        );
+    }
+
+    #[test]
+    fn custom_target_with_dots_is_not_unsuffixed_under_zigbuild() {
+        assert_eq!(
+            target_str("custom-target.1.2.json", true),
+            "custom-target.1.2"
+        );
     }
 }
