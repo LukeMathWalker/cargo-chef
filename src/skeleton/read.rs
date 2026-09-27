@@ -86,6 +86,8 @@ pub(super) fn manifests<P: AsRef<Path>>(
             workspace.remove("lints");
         }
 
+        remove_inherited_target_editions(&mut intermediate);
+
         // Specifically, toml gives no guarantees to the ordering of the auto binaries
         // in its results. We will manually sort these to ensure that the output
         // manifest will match.
@@ -123,6 +125,42 @@ pub(super) fn manifests<P: AsRef<Path>>(
     }
 
     Ok(manifests)
+}
+
+/// `complete_from_path` copies `package.edition` onto every target that doesn't set one.
+/// Cargo already inherits the package edition, and newer Cargo versions warn when `edition`
+/// is set on a target (e.g. "`edition` is set on binary `foo` which is deprecated").
+/// Drop target-level editions that merely repeat the package edition; editions that differ
+/// from the package are left untouched.
+fn remove_inherited_target_editions(manifest: &mut toml::Value) {
+    let Some(package_edition) = manifest
+        .get("package")
+        .and_then(|package| package.get("edition"))
+        .and_then(|edition| edition.as_str())
+        .map(ToOwned::to_owned)
+    else {
+        return;
+    };
+    let Some(table) = manifest.as_table_mut() else {
+        return;
+    };
+
+    let remove_if_inherited = |target: &mut toml::Value| {
+        if let Some(target) = target.as_table_mut() {
+            if target.get("edition").and_then(|e| e.as_str()) == Some(package_edition.as_str()) {
+                target.remove("edition");
+            }
+        }
+    };
+
+    if let Some(lib) = table.get_mut("lib") {
+        remove_if_inherited(lib);
+    }
+    for key in ["bin", "example", "test", "bench"] {
+        if let Some(targets) = table.get_mut(key).and_then(|t| t.as_array_mut()) {
+            targets.iter_mut().for_each(remove_if_inherited);
+        }
+    }
 }
 
 fn gather_targets(package: &PackageMetadata) -> BTreeSet<Target> {

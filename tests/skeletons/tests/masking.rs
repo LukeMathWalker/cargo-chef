@@ -270,7 +270,6 @@ version = "1.8.1"
             [[bin]]
             path = "src/main.rs"
             name = "test-dummy"
-            edition = "2018"
             required-features = []
         "#]],
     );
@@ -293,7 +292,6 @@ version = "1.8.1"
             [lib]
             path = "src/lib.rs"
             name = "project_b"
-            edition = "2018"
             required-features = []
             crate-type = ["cdylib"]
         "#]],
@@ -407,7 +405,6 @@ version = "0.10.5"
             [lib]
             path = "src/lib.rs"
             name = "either"
-            edition = "2021"
             required-features = []
             crate-type = ["cdylib"]
         "#]],
@@ -427,7 +424,6 @@ version = "0.10.5"
             [[bin]]
             path = "src/main.rs"
             name = "project_a"
-            edition = "2021"
             required-features = []
         "#]],
     );
@@ -537,7 +533,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
             [[bin]]
             path = "src/main.rs"
             name = "binary"
-            edition = "2021"
             required-features = []
         "#]],
     );
@@ -555,7 +550,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
             [lib]
             path = "src/lib.rs"
             name = "either"
-            edition = "2021"
             required-features = []
             crate-type = ["lib"]
         "#]],

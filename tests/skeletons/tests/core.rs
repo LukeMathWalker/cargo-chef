@@ -528,3 +528,70 @@ reqwest = {
         "Expected features to contain exactly 'json' from TOML 1.1 multiline inline table"
     );
 }
+
+#[test]
+pub fn target_editions_inherited_from_package_are_not_repeated() {
+    // Arrange
+    // Cargo warns when `edition` is set on individual targets, so the skeleton must not copy
+    // `package.edition` onto them. An explicit, different target edition must be preserved.
+    let project = CargoWorkspace::new()
+        .manifest(
+            ".",
+            r#"
+[package]
+name = "test-dummy"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "test-dummy"
+path = "src/main.rs"
+
+[[example]]
+name = "legacy"
+path = "examples/legacy.rs"
+edition = "2021"
+"#,
+        )
+        .touch("src/main.rs")
+        .touch("src/lib.rs")
+        .touch("examples/legacy.rs")
+        .touch("Cargo.lock")
+        .build();
+
+    // Act
+    let skeleton = Skeleton::derive(project.path(), None).unwrap();
+
+    // Assert
+    assert_eq!(1, skeleton.manifests.len());
+    check(
+        &skeleton.manifests[0].contents,
+        expect![[r#"
+            [package]
+            name = "test-dummy"
+            edition = "2024"
+            version = "0.0.1"
+
+            [[bin]]
+            path = "src/main.rs"
+            name = "test-dummy"
+            required-features = []
+
+            [[example]]
+            path = "examples/legacy.rs"
+            name = "legacy"
+            edition = "2021"
+            required-features = []
+            crate-type = ["bin"]
+
+            [lib]
+            path = "src/lib.rs"
+            name = "test_dummy"
+            required-features = []
+            crate-type = ["lib"]
+        "#]],
+    );
+}
