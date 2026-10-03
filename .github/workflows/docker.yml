@@ -120,6 +120,7 @@ jobs:
                             elif . == "arm64v8" then "linux/arm64"
                             elif . == "arm32v7" then "linux/arm/v7"
                             elif . == "i386" then "linux/386"
+                            elif . == "riscv64" then "linux/riscv64"
                             else empty
                             end
                           )

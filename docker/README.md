@@ -21,7 +21,7 @@ The workflow has three stages:
 - Builds exactly one canonical image per `(cargo-chef version, group key)`:
   - `<cargo-chef version>-base-<group_key_tag>`
 - Uses one representative Rust alias as build input (prefers versioned tags when present).
-- Uses upstream `Architectures` to set `buildx` platforms, limited to `amd64`, `arm64`, `arm/v7`, and `386`.
+- Uses upstream `Architectures` to set `buildx` platforms, limited to `amd64`, `arm64`, `arm/v7`, `riscv64`, and `386`.
 - Skips if the canonical image already exists.
 
 3. Publish aliases per group (`publish_group_aliases`)
